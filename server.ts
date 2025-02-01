@@ -1,17 +1,21 @@
-const express = require("express");
-const dotenv = require("dotenv");
-dotenv.config();
-const cors = require("cors");
-const connectDB = require("./db/db.js");
-const port = process.env.PORT;
-const authRoutes = require("./routes/authRoutes");
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import connectDB from "./db/db.ts";
+import authRoutes from "./routes/authRoutes.ts";
 
+dotenv.config();
+
+const port = process.env.PORT || 3000;
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use("/", authRoutes);
+
+// Read base path from environment variables (defaulting to an empty string)
+const basePath = process.env.BASE_PATH || "";
+app.use(`${basePath}/auth`, authRoutes);
 
 connectDB();
 
