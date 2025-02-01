@@ -1,18 +1,28 @@
-const { v4: uuidv4 } = require("uuid");
-const jwt = require("jsonwebtoken");
-const userSchema = require("../schemas/userSchema");
-const bcrypt = require("bcryptjs");
-const {
+import { v4 as uuidv4 } from "uuid";
+import jwt from "jsonwebtoken";
+import userSchema from "../schemas/userSchema.ts";
+import bcrypt from "bcryptjs";
+import {
   createTable,
   checkRecordExists,
   insertRecord,
-} = require("../utils/sqlFunctions");
+} from "../utils/sqlFunctions.ts";
 
-const generateAccessToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+export interface User {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+const generateAccessToken = (userId: string): string => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
+    expiresIn: "7d",
+  });
 };
 
-const register = async (req, res) => {
+export const register = async (req: any, res: any) => {
   const { email, password, firstName, lastName } = req.body;
 
   // Validate input fields
@@ -27,7 +37,7 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // Create a user object
-    const user = {
+    const user: User = {
       userId: uuidv4(),
       email,
       password: hashedPassword,
@@ -47,12 +57,12 @@ const register = async (req, res) => {
       await insertRecord("users", user);
       res.status(201).json({ message: "User created successfully!" });
     }
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
 
-const login = async (req, res) => {
+export const login = async (req: any, res: any) => {
   const { email, password } = req.body;
   if (!email || !password) {
     res
@@ -62,7 +72,11 @@ const login = async (req, res) => {
   }
 
   try {
-    const existingUser = await checkRecordExists("users", "email", email);
+    const existingUser = (await checkRecordExists(
+      "users",
+      "email",
+      email
+    )) as User | null;
 
     if (existingUser) {
       if (!existingUser.password) {
@@ -87,12 +101,7 @@ const login = async (req, res) => {
     } else {
       res.status(401).json({ error: "Invalid credentials" });
     }
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
-};
-
-module.exports = {
-  register,
-  login,
 };

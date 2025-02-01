@@ -1,12 +1,13 @@
-const mysql = require("mysql2");
-const config = require("./config");
+import mysql from "mysql2";
+import config from "./config.ts";
 
 const connectDB = async () => {
   const pool = mysql.createPool(config);
 
   pool.getConnection((err, connection) => {
     if (err) {
-      console.log({ error: err.message });
+      console.error({ error: err.message });
+      return;
     }
 
     console.log("Connected to MySQL database");
@@ -14,4 +15,4 @@ const connectDB = async () => {
   });
 };
 
-module.exports = connectDB;
+export default connectDB;
