@@ -53,7 +53,7 @@ export const register = async (req: any, res: any) => {
     } else {
       // Insert the user into the database and retrieve the result
       const result = await insertRecord("users", user);
-      const newUserId = result.insertId;
+      const newUserId = (result as { insertId: number }).insertId;
 
       res.status(201).json({
         message: "User created successfully!",
