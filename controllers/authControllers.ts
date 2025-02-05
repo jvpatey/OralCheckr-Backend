@@ -21,10 +21,11 @@ const generateAccessToken = (userId: number): string => {
   });
 };
 
+// Register a user
 export const register = async (req: any, res: any) => {
   const { email, password, firstName, lastName } = req.body;
 
-  // Validate input fields
+  // Validation for input fields
   if (!email || !password || !firstName || !lastName) {
     res.status(400).json({ error: "All fields are required!" });
     return;
@@ -66,6 +67,7 @@ export const register = async (req: any, res: any) => {
   }
 };
 
+// User login
 export const login = async (req: any, res: any) => {
   const { email, password } = req.body;
   if (!email || !password) {

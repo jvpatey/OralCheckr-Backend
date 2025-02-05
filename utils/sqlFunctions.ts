@@ -4,6 +4,7 @@ import type { User } from "../controllers/authControllers.ts";
 
 const pool = mysql.createPool(config);
 
+// Create table in database
 export const createTable = (schema: string) => {
   return new Promise((resolve, reject) => {
     pool.query(schema, (err, results) => {
@@ -16,6 +17,7 @@ export const createTable = (schema: string) => {
   });
 };
 
+// Check if record exists in database
 export const checkRecordExists = (
   tableName: string,
   column: string,
@@ -33,6 +35,7 @@ export const checkRecordExists = (
   });
 };
 
+// Insert record into database
 export const insertRecord = (tableName: string, record: User) => {
   return new Promise((resolve, reject) => {
     const query = `INSERT INTO ${tableName} SET ?`;
