@@ -21,6 +21,32 @@ const generateAccessToken = (userId: number): string => {
   });
 };
 
+// Password validation
+const validatePassword = (password: string): string | null => {
+  const requirements = [
+    { regex: /.{8,}/, message: "Password must be at least 8 characters" },
+    {
+      regex: /[A-Z]/,
+      message: "Password must contain at least one uppercase letter",
+    },
+    {
+      regex: /[a-z]/,
+      message: "Password must contain at least one lowercase letter",
+    },
+    { regex: /\d/, message: "Password must contain at least one digit" },
+    {
+      regex: /[!@#$%^&*(),.?":{}|<>]/,
+      message: "Password must contain at least one special character",
+    },
+  ];
+
+  const errors = requirements
+    .filter((req) => !req.regex.test(password))
+    .map((req) => req.message);
+
+  return errors.length > 0 ? errors.join(", ") : null;
+};
+
 // Register a user
 export const register = async (req: any, res: any) => {
   const { email, password, firstName, lastName } = req.body;
@@ -28,6 +54,13 @@ export const register = async (req: any, res: any) => {
   // Validation for input fields
   if (!email || !password || !firstName || !lastName) {
     res.status(400).json({ error: "All fields are required!" });
+    return;
+  }
+
+  // Validate the password using the validation function
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
     return;
   }
 
