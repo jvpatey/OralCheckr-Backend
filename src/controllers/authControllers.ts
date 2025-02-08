@@ -116,3 +116,35 @@ export const login = async (
     next(error);
   }
 };
+
+// Guest Login
+const generateGuestAccessToken = (): string => {
+  return jwt.sign(
+    { userId: "guest", role: "guest" },
+    process.env.JWT_SECRET as string,
+    {
+      expiresIn: "1d",
+    }
+  );
+};
+
+export const guestLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // Generate temporary JWT token
+    const accessToken = generateGuestAccessToken();
+
+    // Return the token
+    res.status(200).json({
+      message: "Guest login successful",
+      userID: "Guest",
+      accessToken: accessToken,
+      role: "guest",
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
