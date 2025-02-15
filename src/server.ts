@@ -14,12 +14,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Set base path from environment variable
-const basePath = process.env.BASE_PATH || "";
-app.use(`${basePath}/auth`, authRoutes);
-
-// Log the environment and base path
-console.log(`Running in ${process.env.NODE_ENV} mode. Base path: ${basePath}`);
+// Routes
+app.use("/auth", authRoutes);
+console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
 // Sync models and start server only if not in test mode
 if (process.env.NODE_ENV !== "test") {
@@ -27,7 +24,6 @@ if (process.env.NODE_ENV !== "test") {
     .sync()
     .then(() => {
       console.log("All models synchronized successfully.");
-
       app.listen(port, () => {
         console.log(`Server running on port: ${port}`);
       });
