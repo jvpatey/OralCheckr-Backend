@@ -13,34 +13,23 @@ const generateAccessToken = (userId: number): string => {
 const validatePassword = (password: string): string | null => {
   const requirements = [
     { regex: /.{8,}/, message: "Password must be at least 8 characters" },
-    {
-      regex: /[A-Z]/,
-      message: "Password must contain at least one uppercase letter",
-    },
-    {
-      regex: /[a-z]/,
-      message: "Password must contain at least one lowercase letter",
-    },
-    { regex: /\d/, message: "Password must contain at least one digit" },
+    { regex: /[A-Z]/, message: "Must contain at least one uppercase letter" },
+    { regex: /[a-z]/, message: "Must contain at least one lowercase letter" },
+    { regex: /\d/, message: "Must contain at least one digit" },
     {
       regex: /[!@#$%^&*(),.?":{}|<>]/,
-      message: "Password must contain at least one special character",
+      message: "Must contain at least one special character",
     },
   ];
 
   const errors = requirements
     .filter((req) => !req.regex.test(password))
     .map((req) => req.message);
-
   return errors.length > 0 ? errors.join(", ") : null;
 };
 
 // Register a user
-export const register = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password, firstName, lastName } = req.body;
 
   if (!email || !password || !firstName || !lastName) {
@@ -71,22 +60,27 @@ export const register = async (
       password: hashedPassword,
     });
 
-    res.status(201).json({
-      message: "User created successfully",
-      userId: newUser.userId,
-      accessToken: generateAccessToken(newUser.userId),
+    const accessToken = generateAccessToken(newUser.userId);
+
+    // Store token in an HTTP-only cookie
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-  } catch (error: any) {
-    next(error);
+
+    res
+      .status(201)
+      .json({ message: "User created successfully", userId: newUser.userId });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 // User login
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -107,13 +101,20 @@ export const login = async (
       return;
     }
 
-    res.status(200).json({
-      userId: user.userId,
-      email: user.email,
-      accessToken: generateAccessToken(user.userId),
+    const accessToken = generateAccessToken(user.userId);
+
+    // Store token in an HTTP-only cookie
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-  } catch (error: any) {
-    next(error);
+
+    res.status(200).json({ message: "Login successful", userId: user.userId });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -130,21 +131,43 @@ const generateGuestAccessToken = (): string => {
 
 export const guestLogin = async (
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ): Promise<void> => {
   try {
-    // Generate temporary JWT token
     const accessToken = generateGuestAccessToken();
 
-    // Return the token
+    // Store token in an HTTP-only cookie
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
     res.status(200).json({
       message: "Guest login successful",
-      userID: "Guest",
-      accessToken: accessToken,
+      userId: "Guest",
       role: "guest",
     });
-  } catch (error: any) {
-    next(error);
+  } catch (error) {
+    console.error("Guest login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Log out
+
+export const logout = (req: Request, res: Response): void => {
+  try {
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
