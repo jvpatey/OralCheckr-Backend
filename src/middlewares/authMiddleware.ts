@@ -1,36 +1,38 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
-interface AuthRequest extends Request {
+// Extend Express Request to include the user property
+export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: number | string;
+    userId: number | "guest";
     role?: string;
   };
 }
 
-// Middleware to authenticate and verify the JWT token
-export const authenticateToken = (
-  req: AuthRequest,
+// Middleware to authenticate and verify JWT token from cookies
+export const verifyToken = (
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+): void => {
+  const token = req.cookies?.accessToken; // Extract token from cookies
 
   if (!token) {
-    return res.status(401).json({ error: "Access token is missing" });
+    res.status(401).json({ error: "Unauthorized: No token provided" });
+    return;
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-      userId: number | string;
+      userId: number | "guest";
       role?: string;
     };
 
     req.user = { userId: decoded.userId, role: decoded.role };
 
-    next();
+    return next();
   } catch (err) {
-    return res.status(403).json({ error: "Invalid or expired token" });
+    res.status(403).json({ error: "Unauthorized: Invalid or expired token" });
+    return;
   }
 };
