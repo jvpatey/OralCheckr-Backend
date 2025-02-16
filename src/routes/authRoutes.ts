@@ -1,8 +1,14 @@
-import { Router, Response } from "express";
-import { register, login, guestLogin } from "../controllers/authControllers";
+import { Router } from "express";
+import {
+  register,
+  login,
+  guestLogin,
+  logout,
+} from "../controllers/authControllers";
 
 const router = Router();
-//Register
+
+// Register
 router.post("/register", register);
 
 // Login
@@ -11,16 +17,7 @@ router.post("/login", login);
 // Guest login
 router.post("/guest-login", guestLogin);
 
-// Logout
-router.post("/logout", (req, res) => {
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    expires: new Date(0),
-  });
-
-  res.status(200).json({ message: "Logged out successfully" });
-});
+// Logout (Now uses the controller)
+router.post("/logout", logout);
 
 export default router;
