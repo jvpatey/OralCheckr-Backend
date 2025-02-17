@@ -4,6 +4,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import sequelize from "./db/db";
 import authRoutes from "./routes/authRoutes";
+import questionnaireRoutes from "./routes/questionnaireRoutes";
 
 dotenv.config();
 
@@ -18,12 +19,14 @@ app.use(cookieParser());
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/questionnaire", questionnaireRoutes);
+
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
 // Sync models and start server only if not in test mode
 if (process.env.NODE_ENV !== "test") {
   sequelize
-    .sync()
+    .sync({ alter: true })
     .then(() => {
       console.log("All models synchronized successfully.");
       app.listen(port, () => {

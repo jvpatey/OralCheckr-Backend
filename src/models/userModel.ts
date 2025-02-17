@@ -2,7 +2,7 @@ import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 
 interface UserAttributes {
-  userId?: number;
+  userId: number;
   firstName: string;
   lastName: string;
   email: string;
@@ -30,19 +30,24 @@ User.init(
       type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
+      field: "userId",
     },
     firstName: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      field: "firstName",
       validate: {
         notEmpty: { msg: "First name cannot be empty" },
+        isAlpha: { msg: "First name can only contain letters" },
       },
     },
     lastName: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      field: "lastName",
       validate: {
         notEmpty: { msg: "Last name cannot be empty" },
+        isAlpha: { msg: "Last name can only contain letters" },
       },
     },
     email: {
@@ -52,6 +57,7 @@ User.init(
         name: "unique_email",
         msg: "The provided email is already in use.",
       },
+      field: "email",
       validate: {
         isEmail: { msg: "Must be a valid email address" },
       },
@@ -62,13 +68,21 @@ User.init(
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,
+      field: "password",
+      validate: {
+        notEmpty: { msg: "Password cannot be empty" },
+        len: {
+          args: [8, 255],
+          msg: "Password must be at least 8 characters long",
+        },
+      },
     },
   },
   {
     sequelize,
     tableName: "users",
     timestamps: true,
-    underscored: true,
+    underscored: false,
   }
 );
 
