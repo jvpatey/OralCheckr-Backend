@@ -9,7 +9,7 @@ const router = Router();
 // Save questionnaire response
 router.post("/response", saveResponse);
 
-// Get questionnaire response by userId
-router.get("/response/:userId", getResponseByUser);
+// Get questionnaire responses (userID is extracted from jwt token)
+router.get("/response", getResponseByUser);
 
 export default router;
