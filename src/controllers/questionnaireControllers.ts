@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
 
-// Save questionnaire response
+// Save or update questionnaire response
 export const saveResponse = async (
   req: Request,
   res: Response
@@ -22,16 +22,30 @@ export const saveResponse = async (
       return;
     }
 
-    // Save response
-    const newResponse = await QuestionnaireResponse.create({
-      userId,
-      responses,
-      totalScore,
+    // Check if response exists
+    const existingResponse = await QuestionnaireResponse.findOne({
+      where: { userId },
     });
 
-    res
-      .status(201)
-      .json({ message: "Questionnaire response saved", newResponse });
+    if (existingResponse) {
+      // Update existing response
+      await existingResponse.update({ responses, totalScore });
+      res.status(200).json({
+        message: "Questionnaire response updated",
+        response: existingResponse,
+      });
+    } else {
+      // Create new response
+      const newResponse = await QuestionnaireResponse.create({
+        userId,
+        responses,
+        totalScore,
+      });
+      res.status(201).json({
+        message: "Questionnaire response saved",
+        response: newResponse,
+      });
+    }
   } catch (error) {
     console.error("Error saving response:", error);
     res.status(500).json({ error: "Internal server error" });

@@ -5,7 +5,7 @@ import User from "./userModel";
 interface ResponseAttributes {
   id?: number;
   userId: number;
-  responses: Record<number, number | number[]>; // Stores responses per question
+  responses: Record<number, number | number[]>;
   totalScore: number;
 }
 
@@ -34,7 +34,7 @@ QuestionnaireResponse.init(
     userId: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
-      field: "userId",
+      unique: true,
       references: {
         model: User,
         key: "userId",
@@ -58,7 +58,7 @@ QuestionnaireResponse.init(
   }
 );
 
-User.hasMany(QuestionnaireResponse, { foreignKey: "userId", as: "responses" });
+User.hasOne(QuestionnaireResponse, { foreignKey: "userId", as: "responses" });
 QuestionnaireResponse.belongsTo(User, { foreignKey: "userId" });
 
 export default QuestionnaireResponse;
