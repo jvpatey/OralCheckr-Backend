@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
+
+interface DecodedToken {
+  userId: number;
+}
 
 // Save or update questionnaire response
 export const saveResponse = async (
@@ -8,9 +13,24 @@ export const saveResponse = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { userId, responses, totalScore } = req.body;
+    // Extract JWT token from cookies
+    const token = req.cookies.accessToken;
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized - No token provided" });
+      return;
+    }
 
-    if (!userId || !responses || totalScore === undefined) {
+    // Verify and decode JWT
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as DecodedToken;
+    const userId = decoded.userId;
+
+    // Get responses and totalScore from request body
+    const { responses, totalScore } = req.body;
+
+    if (!responses || totalScore === undefined) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -22,7 +42,7 @@ export const saveResponse = async (
       return;
     }
 
-    // Check if response exists
+    // Check if a response already exists for this user
     const existingResponse = await QuestionnaireResponse.findOne({
       where: { userId },
     });
@@ -58,8 +78,21 @@ export const getResponseByUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { userId } = req.params;
+    // Extract JWT token from cookies
+    const token = req.cookies.accessToken;
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized - No token provided" });
+      return;
+    }
 
+    // Verify and decode JWT
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as DecodedToken;
+    const userId = decoded.userId;
+
+    // Fetch the user's response
     const response = await QuestionnaireResponse.findOne({ where: { userId } });
     if (!response) {
       res.status(404).json({ error: "No response found for this user" });
