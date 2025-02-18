@@ -6,11 +6,12 @@ interface ResponseAttributes {
   id?: number;
   userId: number;
   responses: Record<number, number | number[]>;
-  totalScore: number;
+  totalScore?: number;
+  currentQuestion?: number;
 }
 
 interface ResponseCreationAttributes
-  extends Optional<ResponseAttributes, "id"> {}
+  extends Optional<ResponseAttributes, "id" | "currentQuestion"> {}
 
 class QuestionnaireResponse
   extends Model<ResponseAttributes, ResponseCreationAttributes>
@@ -18,8 +19,10 @@ class QuestionnaireResponse
 {
   public id!: number;
   public userId!: number;
-  public responses!: Record<number, number[] | number>;
+  public responses!: Record<number, number | number[]>;
   public totalScore!: number;
+  public currentQuestion!: number;
+
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -47,7 +50,13 @@ QuestionnaireResponse.init(
     },
     totalScore: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    currentQuestion: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
     },
   },
   {
