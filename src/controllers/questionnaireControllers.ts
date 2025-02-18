@@ -48,18 +48,23 @@ export const saveResponse = async (
     });
 
     if (existingResponse) {
-      // Update existing response
-      await existingResponse.update({ responses, totalScore });
+      // Update existing response and reset currentQuestion to 1
+      await existingResponse.update({
+        responses,
+        totalScore,
+        currentQuestion: 1,
+      });
       res.status(200).json({
         message: "Questionnaire response updated",
         response: existingResponse,
       });
     } else {
-      // Create new response
+      // Create new response and set currentQuestion to 1
       const newResponse = await QuestionnaireResponse.create({
         userId,
         responses,
         totalScore,
+        currentQuestion: 1,
       });
       res.status(201).json({
         message: "Questionnaire response saved",
@@ -107,10 +112,6 @@ export const getResponseByUser = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
-// ---------------------
-// New Endpoints for Progress
-// ---------------------
 
 // Save or update questionnaire progress (partial responses and current question)
 export const updateProgress = async (
