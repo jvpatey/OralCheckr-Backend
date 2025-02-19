@@ -1,17 +1,13 @@
 import request from "supertest";
 import app from "../server";
 import bcrypt from "bcryptjs";
+import sequelize from "../db/db";
 
-// Mocking the environment variable for JWT secret
+// Set the JWT secret for tests
 process.env.JWT_SECRET = "testsecret";
 
-// Mock database
-jest.mock("../models/userModel", () => ({
-  findOne: jest.fn(), // Search for user
-  create: jest.fn(), // User creation
-}));
-
-const mockedUserModel = require("../models/userModel");
+// Import the real User model
+import User from "../models/userModel";
 
 describe("Auth Routes", () => {
   beforeEach(() => {
@@ -22,11 +18,11 @@ describe("Auth Routes", () => {
   describe("POST /auth/register", () => {
     // Test: Successfully create a new user
     it("should create a new user successfully", async () => {
-      mockedUserModel.findOne.mockResolvedValue(null); // No existing user
-      mockedUserModel.create.mockResolvedValue({
+      jest.spyOn(User, "findOne").mockResolvedValue(null); // No existing user
+      jest.spyOn(User, "create").mockResolvedValue({
         userId: 1,
         email: "test@example.com",
-      });
+      } as any);
 
       const res = await request(app).post("/auth/register").send({
         email: "test@example.com",
@@ -46,7 +42,9 @@ describe("Auth Routes", () => {
 
     // Test: Fail to register when email already exists
     it("should return 409 if the email already exists", async () => {
-      mockedUserModel.findOne.mockResolvedValue({ email: "test@example.com" });
+      jest
+        .spyOn(User, "findOne")
+        .mockResolvedValue({ email: "test@example.com" } as any);
 
       const res = await request(app).post("/auth/register").send({
         email: "test@example.com",
@@ -99,7 +97,7 @@ describe("Auth Routes", () => {
           lastName: "Doe",
         });
 
-        console.log("Backend Error:", res.body.error); // Debugging message
+        console.log("Backend Error:", res.body.error);
         expect(res.status).toBe(400);
         expect(res.body.error).toContain(message);
       });
@@ -110,11 +108,11 @@ describe("Auth Routes", () => {
   describe("POST /auth/login", () => {
     // Test: Successfully log in with correct credentials
     it("should log in successfully with correct credentials", async () => {
-      mockedUserModel.findOne.mockResolvedValue({
+      jest.spyOn(User, "findOne").mockResolvedValue({
         userId: 1,
         email: "test@example.com",
         password: await bcrypt.hash("password123", 10),
-      });
+      } as any);
 
       const res = await request(app).post("/auth/login").send({
         email: "test@example.com",
@@ -162,4 +160,8 @@ describe("Auth Routes", () => {
       ).toBe(true);
     });
   });
+});
+
+afterAll(async () => {
+  await sequelize.close();
 });
