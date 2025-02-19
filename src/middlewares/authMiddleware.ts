@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
-// Extend Express Request to include the user property
+// Extend Request to include the user property
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: number | "guest";

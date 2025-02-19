@@ -14,7 +14,7 @@ router.post("/response", saveResponse);
 // Get questionnaire responses (userID is extracted from jwt token)
 router.get("/response", getResponseByUser);
 
-// Save (or update) questionnaire progress (partial responses, current question)
+// Update the questionnaire progress (partial responses, current question)
 router.put("/progress", updateProgress);
 
 // Retrieve the questionnaire progress

@@ -156,7 +156,6 @@ export const guestLogin = async (
 };
 
 // Log out
-
 export const logout = (req: Request, res: Response): void => {
   try {
     res.clearCookie("accessToken", {

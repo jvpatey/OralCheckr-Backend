@@ -5,7 +5,7 @@ import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
 import sequelize from "../db/db";
 
-// JWT secret
+// JWT secret for test tokens
 const JWT_SECRET = process.env.JWT_SECRET || "testsecret";
 
 describe("Questionnaire Endpoints", () => {
@@ -26,7 +26,6 @@ describe("Questionnaire Endpoints", () => {
   });
 
   afterAll(async () => {
-    // Cleanup: Remove test data
     await QuestionnaireResponse.destroy({ where: { userId: testUser.userId } });
     await testUser.destroy();
   });

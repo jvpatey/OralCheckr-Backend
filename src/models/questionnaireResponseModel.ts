@@ -2,14 +2,16 @@ import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 import User from "./userModel";
 
+// Interface for questionnaire response
 interface ResponseAttributes {
   id?: number;
-  userId: number;
+  userId: number; // foreign key referecing the User
   responses: Record<number, number | number[]>;
   totalScore?: number;
   currentQuestion?: number;
 }
 
+// Interface for creating an new questionnaire response
 interface ResponseCreationAttributes
   extends Optional<ResponseAttributes, "id" | "currentQuestion"> {}
 
@@ -67,6 +69,7 @@ QuestionnaireResponse.init(
   }
 );
 
+// Each user has one questionnaire response in the database
 User.hasOne(QuestionnaireResponse, { foreignKey: "userId", as: "responses" });
 QuestionnaireResponse.belongsTo(User, { foreignKey: "userId" });
 

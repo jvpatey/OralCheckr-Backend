@@ -7,7 +7,7 @@ interface DecodedToken {
   userId: number;
 }
 
-// Save or update the final questionnaire response (submission)
+// Submission of questionnaire data in db
 export const saveResponse = async (
   req: Request,
   res: Response
@@ -77,7 +77,7 @@ export const saveResponse = async (
   }
 };
 
-// Get final questionnaire response by user ID
+// Get questionnaire response by user ID
 export const getResponseByUser = async (
   req: Request,
   res: Response
@@ -137,13 +137,13 @@ export const updateProgress = async (
       return;
     }
 
-    // Find existing progress record for this user
+    // Find existing progress record for the user
     const existingResponse = await QuestionnaireResponse.findOne({
       where: { userId },
     });
 
     if (existingResponse) {
-      // Update progress fields. This assumes your model includes a "currentQuestion" field.
+      // Update the existing record with the new progress
       await existingResponse.update({ responses, currentQuestion });
       res.status(200).json({
         message: "Questionnaire progress updated",
@@ -167,7 +167,7 @@ export const updateProgress = async (
   }
 };
 
-// Retrieve questionnaire progress for the authenticated user
+// Retrieve questionnaire progress for authenticated users
 export const getProgress = async (
   req: Request,
   res: Response
