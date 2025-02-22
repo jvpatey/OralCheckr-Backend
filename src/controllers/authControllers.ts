@@ -1,7 +1,8 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import User from "../models/userModel";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -169,4 +170,16 @@ export const logout = (req: Request, res: Response): void => {
     console.error("Logout error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+};
+
+// Validating the user credentials
+export const validateUser = (
+  req: AuthenticatedRequest,
+  res: Response
+): void => {
+  if (!req.user) {
+    res.status(401).json({ error: "Unauthorized: No user found" });
+    return;
+  }
+  res.status(200).json({ user: req.user });
 };

@@ -4,7 +4,9 @@ import {
   login,
   guestLogin,
   logout,
+  validateUser,
 } from "../controllers/authControllers";
+import { verifyToken } from "../middlewares/authMiddleware";
 
 const router = Router();
 
@@ -16,6 +18,9 @@ router.post("/login", login);
 
 // Guest login
 router.post("/guest-login", guestLogin);
+
+// Validate user
+router.get("/validate", verifyToken, validateUser);
 
 // Logout
 router.post("/logout", logout);
