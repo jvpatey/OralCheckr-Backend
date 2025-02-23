@@ -1,4 +1,5 @@
 import { DataTypes, Model, Optional } from "sequelize";
+import bcrypt from "bcryptjs";
 import sequelize from "../db/db";
 
 interface UserAttributes {
@@ -7,9 +8,11 @@ interface UserAttributes {
   lastName: string;
   email: string;
   password: string;
+  isGuest?: boolean;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, "userId"> {}
+interface UserCreationAttributes
+  extends Optional<UserAttributes, "userId" | "isGuest"> {}
 
 class User
   extends Model<UserAttributes, UserCreationAttributes>
@@ -20,8 +23,29 @@ class User
   public lastName!: string;
   public email!: string;
   public password!: string;
+  public isGuest!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  //Create a new guest user with a unique guest email and a default guest password.
+  public static async createGuest(): Promise<User> {
+    const guestEmail = `guest_${Date.now()}_${Math.floor(
+      Math.random() * 10000
+    )}@guest.com`;
+    // Use a default guest password
+    const guestPassword = "guestPassword!";
+    // Hash the guest password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(guestPassword, salt);
+    // Create and return the new guest user
+    return await User.create({
+      firstName: "Guest",
+      lastName: "User",
+      email: guestEmail,
+      password: hashedPassword,
+      isGuest: true,
+    });
+  }
 }
 
 User.init(
@@ -76,6 +100,11 @@ User.init(
           msg: "Password must be at least 8 characters long",
         },
       },
+    },
+    isGuest: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
   },
   {

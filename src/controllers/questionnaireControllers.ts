@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
 interface DecodedToken {
   userId: number;
@@ -199,6 +200,35 @@ export const getProgress = async (
     });
   } catch (error) {
     console.error("Error fetching progress:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Guest Questionnaire
+export const saveGuestQuestionnaireResponse = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    // Check that the user is authenticated and has a guest role
+    if (!req.user || req.user.role !== "guest") {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const { responses, totalScore } = req.body;
+    // Use the unique numeric guest userId from the token
+    const guestUserId = req.user.userId as number;
+
+    await QuestionnaireResponse.create({
+      userId: guestUserId,
+      responses,
+      totalScore,
+    });
+
+    res.status(200).json({ message: "Guest responses saved" });
+  } catch (error) {
+    console.error("Error saving guest questionnaire response:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import QuestionnaireResponse from "../models/questionnaireResponseModel";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -120,9 +121,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 // Guest Login
-const generateGuestAccessToken = (): string => {
+const generateGuestAccessToken = (guestUserId: number): string => {
   return jwt.sign(
-    { userId: "guest", role: "guest" },
+    { userId: guestUserId, role: "guest" },
     process.env.JWT_SECRET as string,
     {
       expiresIn: "1d",
@@ -135,7 +136,8 @@ export const guestLogin = async (
   res: Response
 ): Promise<void> => {
   try {
-    const accessToken = generateGuestAccessToken();
+    const guestUser = await User.createGuest();
+    const accessToken = generateGuestAccessToken(guestUser.userId);
 
     // Store token in an HTTP-only cookie
     res.cookie("accessToken", accessToken, {
@@ -147,7 +149,7 @@ export const guestLogin = async (
 
     res.status(200).json({
       message: "Guest login successful",
-      userId: "Guest",
+      userId: guestUser.userId,
       role: "guest",
     });
   } catch (error) {
@@ -182,4 +184,80 @@ export const validateUser = (
     return;
   }
   res.status(200).json({ user: req.user });
+};
+
+// Converting guest user to registered user on sign up
+export const convertGuestToUser = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    // Ensure the current session is from a guest user.
+    if (!req.user || req.user.role !== "guest") {
+      res.status(400).json({ error: "No guest session found" });
+      return;
+    }
+
+    const { email, password, firstName, lastName } = req.body;
+    if (!email || !password || !firstName || !lastName) {
+      res.status(400).json({ error: "All fields are required!" });
+      return;
+    }
+
+    // Check if the provided email already exists.
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      res.status(409).json({ error: "Email already exists" });
+      return;
+    }
+
+    // Hash the new password.
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Get the guest user's numeric ID from the token.
+    const guestUserId = req.user.userId;
+
+    // Create a new permanent user record with the registration details.
+    const newUser = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      isGuest: false,
+    });
+
+    // Merge questionnaire responses:
+    // Update all responses that belong to the guest user to use the new user's ID.
+    await QuestionnaireResponse.update(
+      { userId: newUser.userId },
+      { where: { userId: guestUserId } }
+    );
+
+    // Delete the guest user record as it's no longer needed.
+    await User.destroy({ where: { userId: guestUserId } });
+
+    // Generate a new access token for the new user.
+    const newAccessToken = jwt.sign(
+      { userId: newUser.userId, role: "user" },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    // Set the new token in an HTTP-only cookie.
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.status(200).json({
+      message: "Guest account converted and data merged successfully",
+      userId: newUser.userId,
+    });
+  } catch (error) {
+    console.error("Error converting guest:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };

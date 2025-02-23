@@ -5,6 +5,7 @@ import {
   guestLogin,
   logout,
   validateUser,
+  convertGuestToUser,
 } from "../controllers/authControllers";
 import { verifyToken } from "../middlewares/authMiddleware";
 
@@ -16,11 +17,14 @@ router.post("/register", register);
 // Login
 router.post("/login", login);
 
+// Validate user
+router.get("/validate", verifyToken, validateUser);
+
 // Guest login
 router.post("/guest-login", guestLogin);
 
-// Validate user
-router.get("/validate", verifyToken, validateUser);
+// Guest user convert on new sign up
+router.post("/convert-guest", verifyToken, convertGuestToUser);
 
 // Logout
 router.post("/logout", logout);
