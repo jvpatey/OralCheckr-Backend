@@ -4,7 +4,9 @@ import {
   getResponseByUser,
   updateProgress,
   getProgress,
+  saveGuestQuestionnaireResponse,
 } from "../controllers/questionnaireControllers";
+import { verifyToken } from "../middlewares/authMiddleware";
 
 const router = Router();
 
@@ -19,5 +21,8 @@ router.put("/progress", updateProgress);
 
 // Retrieve the questionnaire progress
 router.get("/progress", getProgress);
+
+// Save guest questionnaire responses
+router.post("/guest", verifyToken, saveGuestQuestionnaireResponse);
 
 export default router;

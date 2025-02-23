@@ -120,9 +120,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 // Guest Login
-const generateGuestAccessToken = (): string => {
+const generateGuestAccessToken = (guestUserId: number): string => {
   return jwt.sign(
-    { userId: "guest", role: "guest" },
+    { userId: guestUserId, role: "guest" },
     process.env.JWT_SECRET as string,
     {
       expiresIn: "1d",
@@ -135,7 +135,8 @@ export const guestLogin = async (
   res: Response
 ): Promise<void> => {
   try {
-    const accessToken = generateGuestAccessToken();
+    const guestUser = await User.createGuest();
+    const accessToken = generateGuestAccessToken(guestUser.userId);
 
     // Store token in an HTTP-only cookie
     res.cookie("accessToken", accessToken, {
@@ -147,7 +148,7 @@ export const guestLogin = async (
 
     res.status(200).json({
       message: "Guest login successful",
-      userId: "Guest",
+      userId: guestUser.userId,
       role: "guest",
     });
   } catch (error) {
