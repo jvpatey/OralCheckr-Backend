@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import QuestionnaireResponse from "../models/questionnaireResponseModel";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -183,4 +184,74 @@ export const validateUser = (
     return;
   }
   res.status(200).json({ user: req.user });
+};
+
+// Converting guest user to registered user on sign up
+export const convertGuestToUser = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    // Ensure the request comes from a guest session
+    if (!req.user || req.user.role !== "guest") {
+      res.status(400).json({ error: "No guest session found" });
+      return;
+    }
+
+    const { email, password, firstName, lastName } = req.body;
+    if (!email || !password || !firstName || !lastName) {
+      res.status(400).json({ error: "All fields are required!" });
+      return;
+    }
+
+    // Check if a user with the provided email already exists
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      res.status(409).json({ error: "Email already exists" });
+      return;
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update the current guest record with new registration details
+    const guestUserId = req.user.userId;
+    const updated = await User.update(
+      {
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword,
+        isGuest: false,
+      },
+      { where: { userId: guestUserId }, returning: true }
+    );
+
+    // Optionally, handle merging guest questionnaire responses to the new account here.
+    // For example, call a service function to merge data from the guest record to the new one.
+
+    // Generate a new access token for the converted user
+    const newAccessToken = jwt.sign(
+      { userId: guestUserId, role: "user" },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    // Set the new token in the cookie
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(200).json({
+      message: "Guest account converted to registered user successfully",
+      userId: guestUserId,
+    });
+  } catch (error) {
+    console.error("Error converting guest:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
