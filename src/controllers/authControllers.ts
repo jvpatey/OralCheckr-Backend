@@ -192,7 +192,7 @@ export const convertGuestToUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Ensure the request comes from a guest session
+    // Ensure the current session is from a guest user.
     if (!req.user || req.user.role !== "guest") {
       res.status(400).json({ error: "No guest session found" });
       return;
@@ -204,51 +204,57 @@ export const convertGuestToUser = async (
       return;
     }
 
-    // Check if a user with the provided email already exists
+    // Check if the provided email already exists.
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       res.status(409).json({ error: "Email already exists" });
       return;
     }
 
-    // Hash the new password
+    // Hash the new password.
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Update the current guest record with new registration details
+    // Get the guest user's numeric ID from the token.
     const guestUserId = req.user.userId;
-    const updated = await User.update(
-      {
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-        isGuest: false,
-      },
-      { where: { userId: guestUserId }, returning: true }
+
+    // Create a new permanent user record with the registration details.
+    const newUser = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword,
+      isGuest: false,
+    });
+
+    // Merge questionnaire responses:
+    // Update all responses that belong to the guest user to use the new user's ID.
+    await QuestionnaireResponse.update(
+      { userId: newUser.userId },
+      { where: { userId: guestUserId } }
     );
 
-    // Optionally, handle merging guest questionnaire responses to the new account here.
-    // For example, call a service function to merge data from the guest record to the new one.
+    // Delete the guest user record as it's no longer needed.
+    await User.destroy({ where: { userId: guestUserId } });
 
-    // Generate a new access token for the converted user
+    // Generate a new access token for the new user.
     const newAccessToken = jwt.sign(
-      { userId: guestUserId, role: "user" },
+      { userId: newUser.userId, role: "user" },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" }
     );
 
-    // Set the new token in the cookie
+    // Set the new token in an HTTP-only cookie.
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({
-      message: "Guest account converted to registered user successfully",
-      userId: guestUserId,
+      message: "Guest account converted and data merged successfully",
+      userId: newUser.userId,
     });
   } catch (error) {
     console.error("Error converting guest:", error);
