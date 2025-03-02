@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser";
 import sequelize from "./db/db";
 import authRoutes from "./routes/authRoutes";
 import questionnaireRoutes from "./routes/questionnaireRoutes";
+import habitRoutes from "./routes/habitRoutes";
+import habitLogRoutes from "./routes/habitLogRoutes";
 
 dotenv.config();
 
@@ -20,6 +22,8 @@ app.use(cookieParser());
 // Routes
 app.use("/auth", authRoutes);
 app.use("/questionnaire", questionnaireRoutes);
+app.use("/habits", habitRoutes);
+app.use("/habit-logs", habitLogRoutes);
 
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
