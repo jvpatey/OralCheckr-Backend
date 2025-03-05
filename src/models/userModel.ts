@@ -2,6 +2,7 @@ import { DataTypes, Model, Optional } from "sequelize";
 import bcrypt from "bcryptjs";
 import sequelize from "../db/db";
 
+/* -- User model attributes -- */
 interface UserAttributes {
   userId: number;
   firstName: string;
@@ -11,9 +12,11 @@ interface UserAttributes {
   isGuest?: boolean;
 }
 
+/* -- User model creation attributes -- */
 interface UserCreationAttributes
   extends Optional<UserAttributes, "userId" | "isGuest"> {}
 
+/* -- User model -- */
 class User
   extends Model<UserAttributes, UserCreationAttributes>
   implements UserAttributes
@@ -26,28 +29,9 @@ class User
   public isGuest!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
-
-  //Create a new guest user with a unique guest email and a default guest password.
-  public static async createGuest(): Promise<User> {
-    const guestEmail = `guest_${Date.now()}_${Math.floor(
-      Math.random() * 10000
-    )}@guest.com`;
-    // Use a default guest password
-    const guestPassword = "guestPassword!";
-    // Hash the guest password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(guestPassword, salt);
-    // Create and return the new guest user
-    return await User.create({
-      firstName: "Guest",
-      lastName: "User",
-      email: guestEmail,
-      password: hashedPassword,
-      isGuest: true,
-    });
-  }
 }
 
+/* -- Initialize the User model -- */
 User.init(
   {
     userId: {

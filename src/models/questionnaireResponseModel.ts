@@ -2,19 +2,20 @@ import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 import User from "./userModel";
 
-// Interface for questionnaire response
+/* -- Interface for questionnaire response attributes -- */
 interface ResponseAttributes {
   id?: number;
-  userId: number; // foreign key referecing the User
+  userId: number; // foreign key
   responses: Record<number, number | number[]>;
   totalScore?: number;
   currentQuestion?: number;
 }
 
-// Interface for creating an new questionnaire response
+/* -- Interface for creating an new questionnaire response -- */
 interface ResponseCreationAttributes
   extends Optional<ResponseAttributes, "id" | "currentQuestion"> {}
 
+/* -- QuestionnaireResponse model -- */
 class QuestionnaireResponse
   extends Model<ResponseAttributes, ResponseCreationAttributes>
   implements ResponseAttributes
@@ -29,6 +30,7 @@ class QuestionnaireResponse
   public readonly updatedAt!: Date;
 }
 
+/* -- Initialize the QuestionnaireResponse model -- */
 QuestionnaireResponse.init(
   {
     id: {
@@ -69,7 +71,7 @@ QuestionnaireResponse.init(
   }
 );
 
-// Each user has one questionnaire response in the database
+/* -- Associations -- */
 User.hasOne(QuestionnaireResponse, { foreignKey: "userId", as: "responses" });
 QuestionnaireResponse.belongsTo(User, { foreignKey: "userId" });
 

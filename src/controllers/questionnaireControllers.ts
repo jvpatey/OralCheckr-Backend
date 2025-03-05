@@ -8,7 +8,7 @@ interface DecodedToken {
   userId: number;
 }
 
-// Submission of questionnaire data in db
+/* -- Save questionaire responss on submission of questionnaire -- */
 export const saveResponse = async (
   req: Request,
   res: Response
@@ -78,7 +78,7 @@ export const saveResponse = async (
   }
 };
 
-// Get questionnaire response by user ID
+/* -- Get questionnaire responses by user ID -- */
 export const getResponseByUser = async (
   req: Request,
   res: Response
@@ -114,7 +114,7 @@ export const getResponseByUser = async (
   }
 };
 
-// Save or update questionnaire progress (partial responses and current question)
+/* -- Save or update questionnaire progress (partial responses and current question) -- */
 export const updateProgress = async (
   req: Request,
   res: Response
@@ -168,7 +168,7 @@ export const updateProgress = async (
   }
 };
 
-// Retrieve questionnaire progress for authenticated users
+/* -- Retrieve questionnaire progress for authenticated users -- */
 export const getProgress = async (
   req: Request,
   res: Response
@@ -204,7 +204,7 @@ export const getProgress = async (
   }
 };
 
-// Guest Questionnaire
+/* -- Save guest questionnaire responses -- */
 export const saveGuestQuestionnaireResponse = async (
   req: AuthenticatedRequest,
   res: Response
