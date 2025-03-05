@@ -12,10 +12,11 @@ interface HabitLogAttributes {
   updatedAt?: Date;
 }
 
-// Attributes that can be null/undefined when creating a new HabitLog
+/* -- Attributes that can be null/undefined when creating a new HabitLog -- */
 interface HabitLogCreationAttributes
   extends Optional<HabitLogAttributes, "logId" | "createdAt" | "updatedAt"> {}
 
+/* -- HabitLog model -- */
 class HabitLog
   extends Model<HabitLogAttributes, HabitLogCreationAttributes>
   implements HabitLogAttributes
@@ -25,12 +26,11 @@ class HabitLog
   public userId!: number;
   public date!: Date;
   public count!: number;
-
-  // Timestamps
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
 
+/* -- Initialize the HabitLog model -- */
 HabitLog.init(
   {
     logId: {
@@ -95,7 +95,7 @@ HabitLog.init(
   }
 );
 
-// Associations
+/* -- Associations -- */
 Habit.hasMany(HabitLog, {
   foreignKey: "habitId",
   as: "logs",

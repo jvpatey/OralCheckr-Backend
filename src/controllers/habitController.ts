@@ -3,7 +3,7 @@ import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
-// Get all habits for a user
+/* -- Get all habits for a user -- */
 export const getHabits = async (
   req: AuthenticatedRequest,
   res: Response
@@ -28,7 +28,7 @@ export const getHabits = async (
   }
 };
 
-// Create a new habit
+/* -- Create a new habit -- */
 export const createHabit = async (
   req: AuthenticatedRequest,
   res: Response
@@ -73,7 +73,7 @@ export const createHabit = async (
   }
 };
 
-// Update a habit
+/* -- Update a habit -- */
 export const updateHabit = async (
   req: AuthenticatedRequest,
   res: Response
@@ -130,7 +130,7 @@ export const updateHabit = async (
   }
 };
 
-// Delete a habit
+/* -- Delete a habit -- */
 export const deleteHabit = async (
   req: AuthenticatedRequest,
   res: Response
@@ -170,7 +170,7 @@ export const deleteHabit = async (
   }
 };
 
-// Delete all habits for a user
+/* -- Delete all habits for a user -- */
 export const deleteAllHabits = async (
   req: AuthenticatedRequest,
   res: Response

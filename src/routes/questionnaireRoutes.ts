@@ -10,19 +10,12 @@ import { verifyToken } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-// Save questionnaire response
-router.post("/response", saveResponse);
-
-// Get questionnaire responses (userID is extracted from jwt token)
-router.get("/response", getResponseByUser);
-
-// Update the questionnaire progress (partial responses, current question)
+/* -- Questionnaire Routes -- */
+router.post("/response", saveResponse); // Save questionnaire response
+router.get("/response", getResponseByUser); // Get questionnaire responses
+router.put("/progress", updateProgress); // Update the questionnaire progress
 router.put("/progress", updateProgress);
-
-// Retrieve the questionnaire progress
-router.get("/progress", getProgress);
-
-// Save guest questionnaire responses
-router.post("/guest", verifyToken, saveGuestQuestionnaireResponse);
+router.get("/progress", getProgress); // Retrieve the questionnaire progress
+router.post("/guest", verifyToken, saveGuestQuestionnaireResponse); // Save guest questionnaire responses
 
 export default router;

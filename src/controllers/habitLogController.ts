@@ -4,7 +4,7 @@ import HabitLog from "../models/habitLogModel";
 import Habit from "../models/habitModel";
 import { Op } from "sequelize";
 
-// Get logs for a specific habit
+/* -- Get logs for a specific habit -- */
 export const getHabitLogs = async (
   req: AuthenticatedRequest,
   res: Response
@@ -18,7 +18,7 @@ export const getHabitLogs = async (
       return;
     }
 
-    // Get date range from query params (optional)
+    // Get date range from query params
     const { year, month } = req.query;
     const dateFilter: any = {};
 
@@ -78,7 +78,7 @@ export const getHabitLogs = async (
   }
 };
 
-// Log a habit (increment by 1)
+/* -- Log a habit (increment by 1) -- */
 export const logHabit = async (
   req: AuthenticatedRequest,
   res: Response
@@ -210,7 +210,7 @@ export const logHabit = async (
   }
 };
 
-// Delete a habit log (decrement by 1)
+/* -- Delete a habit log (decrement by 1) -- */
 export const deleteHabitLog = async (
   req: AuthenticatedRequest,
   res: Response

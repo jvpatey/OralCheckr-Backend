@@ -9,15 +9,13 @@ import {
 import { verifyToken } from "../middlewares/authMiddleware";
 
 const router = express.Router();
-
-// Apply authentication middleware to all habit routes
 router.use(verifyToken);
 
-// Habit routes
-router.get("/", getHabits);
-router.post("/", createHabit);
-router.put("/:id", updateHabit);
-router.delete("/:id", deleteHabit);
-router.delete("/", deleteAllHabits);
+/* -- Habit routes -- */
+router.get("/", getHabits); // Get all habits
+router.post("/", createHabit); // Create a new habit
+router.put("/:id", updateHabit); // Update a habit by id
+router.delete("/:id", deleteHabit); // Delete a habit by id
+router.delete("/", deleteAllHabits); // Delete all habits
 
 export default router;

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
 
-// Extend Request to include the user property
+/* -- Extend Request to include the user property -- */
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: number;
@@ -9,14 +9,14 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-// Middleware to authenticate and verify JWT token from cookies or headers
+/* -- Middleware to authenticate and verify JWT token from cookies or headers -- */
 export const verifyToken = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): void => {
   const token =
-    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1]; // Extract from cookie or Authorization header
+    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
 
   console.log("Token received:", token);
 

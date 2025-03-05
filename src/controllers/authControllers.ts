@@ -13,7 +13,7 @@ const generateAccessToken = (userId: number): string => {
   });
 };
 
-// Validate password
+/* -- Password Validation -- */
 const validatePassword = (password: string): string | null => {
   const requirements = [
     { regex: /.{8,}/, message: "Password must be at least 8 characters" },
@@ -32,7 +32,27 @@ const validatePassword = (password: string): string | null => {
   return errors.length > 0 ? errors.join(", ") : null;
 };
 
-// Register a user
+/* -- Guest User Creation -- */
+const createGuestUser = async (): Promise<User> => {
+  const guestEmail = `guest_${Date.now()}_${Math.floor(
+    Math.random() * 10000
+  )}@guest.com`;
+  // Use a default guest password
+  const guestPassword = "guestPassword!";
+  // Hash the guest password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(guestPassword, salt);
+  // Create and return the new guest user
+  return await User.create({
+    firstName: "Guest",
+    lastName: "User",
+    email: guestEmail,
+    password: hashedPassword,
+    isGuest: true,
+  });
+};
+
+/* -- Register a user -- */
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password, firstName, lastName } = req.body;
 
@@ -83,7 +103,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Login a user
+/* -- Login a user -- */
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
@@ -122,7 +142,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Guest Login
+/* -- Guest Login -- */
 const generateGuestAccessToken = (guestUserId: number): string => {
   return jwt.sign(
     { userId: guestUserId, role: "guest" },
@@ -138,7 +158,7 @@ export const guestLogin = async (
   res: Response
 ): Promise<void> => {
   try {
-    const guestUser = await User.createGuest();
+    const guestUser = await createGuestUser();
     const accessToken = generateGuestAccessToken(guestUser.userId);
 
     // Store token in an HTTP-only cookie
@@ -160,7 +180,7 @@ export const guestLogin = async (
   }
 };
 
-// Log out
+/* -- Log out -- */
 export const logout = (req: Request, res: Response): void => {
   try {
     res.clearCookie("accessToken", {
@@ -176,7 +196,7 @@ export const logout = (req: Request, res: Response): void => {
   }
 };
 
-// Validating the user credentials
+/* -- Validating the user credentials -- */
 export const validateUser = (
   req: AuthenticatedRequest,
   res: Response
@@ -188,7 +208,7 @@ export const validateUser = (
   res.status(200).json({ user: req.user });
 };
 
-// Converting guest user to registered user on sign up
+/* -- Converting guest user to registered user on sign up -- */
 export const convertGuestToUser = async (
   req: AuthenticatedRequest,
   res: Response
