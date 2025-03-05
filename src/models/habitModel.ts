@@ -67,6 +67,13 @@ Habit.init(
     tableName: "habits",
     timestamps: true,
     underscored: false,
+    indexes: [
+      {
+        unique: true,
+        fields: ["name", "userId"],
+        name: "name_user_unique",
+      },
+    ],
   }
 );
 

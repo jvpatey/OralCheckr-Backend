@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from "express";
 // Extend Request to include the user property
 export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: number | "guest";
+    userId: number;
     role?: string;
   };
 }
@@ -27,7 +27,7 @@ export const verifyToken = (
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-      userId: number | "guest";
+      userId: number;
       role?: string;
     };
 

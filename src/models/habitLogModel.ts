@@ -12,7 +12,7 @@ interface HabitLogAttributes {
   updatedAt?: Date;
 }
 
-// Attributesthat can be null/undefined when creating a new HabitLog
+// Attributes that can be null/undefined when creating a new HabitLog
 interface HabitLogCreationAttributes
   extends Optional<HabitLogAttributes, "logId" | "createdAt" | "updatedAt"> {}
 
@@ -82,6 +82,14 @@ HabitLog.init(
         unique: true,
         fields: ["habitId", "date"],
         name: "habit_date_unique",
+      },
+      {
+        fields: ["date"],
+        name: "date_index",
+      },
+      {
+        fields: ["userId", "date"],
+        name: "user_date_index",
       },
     ],
   }

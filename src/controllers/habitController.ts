@@ -1,5 +1,6 @@
 import { Response } from "express";
 import Habit from "../models/habitModel";
+import HabitLog from "../models/habitLogModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
 // Get all habits for a user
@@ -10,7 +11,7 @@ export const getHabits = async (
   try {
     const userId = req.user?.userId;
 
-    if (!userId || userId === "guest") {
+    if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
@@ -35,7 +36,7 @@ export const createHabit = async (
   try {
     const userId = req.user?.userId;
 
-    if (!userId || userId === "guest") {
+    if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
@@ -81,7 +82,7 @@ export const updateHabit = async (
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.id);
 
-    if (!userId || userId === "guest") {
+    if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
@@ -138,7 +139,7 @@ export const deleteHabit = async (
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.id);
 
-    if (!userId || userId === "guest") {
+    if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
@@ -152,9 +153,17 @@ export const deleteHabit = async (
       return;
     }
 
+    // Delete associated logs first
+    await HabitLog.destroy({
+      where: { habitId, userId },
+    });
+
+    // Then delete the habit
     await habit.destroy();
 
-    res.status(200).json({ message: "Habit deleted successfully" });
+    res
+      .status(200)
+      .json({ message: "Habit and associated logs deleted successfully" });
   } catch (error) {
     console.error("Error deleting habit:", error);
     res.status(500).json({ error: "Failed to delete habit" });
@@ -169,16 +178,24 @@ export const deleteAllHabits = async (
   try {
     const userId = req.user?.userId;
 
-    if (!userId || userId === "guest") {
+    if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       return;
     }
 
+    // Delete all logs for this user first
+    await HabitLog.destroy({
+      where: { userId },
+    });
+
+    // Then delete all habits
     await Habit.destroy({
       where: { userId },
     });
 
-    res.status(200).json({ message: "All habits deleted successfully" });
+    res
+      .status(200)
+      .json({ message: "All habits and their logs deleted successfully" });
   } catch (error) {
     console.error("Error deleting all habits:", error);
     res.status(500).json({ error: "Failed to delete all habits" });

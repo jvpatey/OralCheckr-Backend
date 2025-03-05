@@ -4,6 +4,8 @@ import { Request, Response } from "express";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
+import Habit from "../models/habitModel";
+import HabitLog from "../models/habitLogModel";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -11,7 +13,7 @@ const generateAccessToken = (userId: number): string => {
   });
 };
 
-// Password validation function
+// Validate password
 const validatePassword = (password: string): string | null => {
   const requirements = [
     { regex: /.{8,}/, message: "Password must be at least 8 characters" },
@@ -81,7 +83,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// User login
+// Login a user
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
@@ -234,6 +236,26 @@ export const convertGuestToUser = async (
       { where: { userId: guestUserId } }
     );
 
+    // Migrate habits - update the userId
+    await Habit.update(
+      { userId: newUser.userId },
+      { where: { userId: guestUserId } }
+    );
+
+    // Migrate habit logs - update the userId
+    await HabitLog.update(
+      { userId: newUser.userId },
+      { where: { userId: guestUserId } }
+    );
+
+    // Count how many habits were migrated
+    const habitCount = await Habit.count({ where: { userId: newUser.userId } });
+
+    // Count how many habit logs were migrated
+    const logCount = await HabitLog.count({
+      where: { userId: newUser.userId },
+    });
+
     // Delete the guest user record as it's no longer needed.
     await User.destroy({ where: { userId: guestUserId } });
 
@@ -248,16 +270,24 @@ export const convertGuestToUser = async (
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    // Return the new user details (excluding the password).
     res.status(200).json({
-      message: "Guest account converted and data merged successfully",
-      userId: newUser.userId,
+      message: "Guest account successfully converted to permanent account",
+      user: {
+        userId: newUser.userId,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        email: newUser.email,
+        isGuest: false,
+      },
+      habitsMigrated: habitCount,
+      logsMigrated: logCount,
     });
   } catch (error) {
-    console.error("Error converting guest:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Error converting guest to user:", error);
+    res.status(500).json({ error: "Failed to convert guest account" });
   }
 };
