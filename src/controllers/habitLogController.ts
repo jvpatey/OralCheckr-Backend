@@ -93,15 +93,65 @@ export const logHabit = async (
       return;
     }
 
+    if (!habitId || isNaN(habitId)) {
+      res.status(400).json({ error: "Invalid habit ID" });
+      return;
+    }
+
     if (!year || !month || !day) {
       res.status(400).json({
         error: "Year, month, and day are required",
+        received: { year, month, day },
       });
       return;
     }
 
-    // Convert to Date object
-    const date = new Date(year, new Date(month).getMonth(), day);
+    // Convert month name to month index (0-11)
+    const monthIndex = new Date(Date.parse(`${month} 1, 2000`)).getMonth();
+    if (isNaN(monthIndex)) {
+      res.status(400).json({
+        error: "Invalid month name provided",
+        received: { month },
+        validMonths: [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ],
+      });
+      return;
+    }
+
+    // Create date using the month index
+    const date = new Date(year, monthIndex, day);
+
+    if (isNaN(date.getTime())) {
+      res.status(400).json({
+        error: "Invalid date values provided",
+        received: { year, month, day },
+        parsedDate: date,
+      });
+      return;
+    }
+
+    // Validate the date is not in the future
+    const today = new Date();
+    if (date > today) {
+      res.status(400).json({
+        error: "Cannot log habits for future dates",
+        received: { year, month, day },
+        currentDate: today.toISOString().split("T")[0],
+      });
+      return;
+    }
 
     // Find the habit and verify ownership
     const habit = await Habit.findOne({
@@ -110,7 +160,11 @@ export const logHabit = async (
     });
 
     if (!habit) {
-      res.status(404).json({ error: "Habit not found or unauthorized" });
+      res.status(404).json({
+        error: "Habit not found or unauthorized",
+        habitId,
+        userId,
+      });
       return;
     }
 
@@ -125,6 +179,8 @@ export const logHabit = async (
     if (currentCount >= habit.count) {
       res.status(400).json({
         error: `Cannot increment: would exceed habit's maximum count of ${habit.count}`,
+        currentCount,
+        maxCount: habit.count,
       });
       return;
     }
@@ -147,7 +203,10 @@ export const logHabit = async (
     });
   } catch (error) {
     console.error("Error logging habit:", error);
-    res.status(500).json({ error: "Failed to log habit" });
+    res.status(500).json({
+      error: "Failed to log habit",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 };
 
@@ -166,8 +225,49 @@ export const deleteHabitLog = async (
       return;
     }
 
-    // Convert to Date object
-    const date = new Date(year, new Date(month).getMonth(), day);
+    if (!year || !month || !day) {
+      res.status(400).json({
+        error: "Year, month, and day are required",
+        received: { year, month, day },
+      });
+      return;
+    }
+
+    // Convert month name to month index (0-11)
+    const monthIndex = new Date(Date.parse(`${month} 1, 2000`)).getMonth();
+    if (isNaN(monthIndex)) {
+      res.status(400).json({
+        error: "Invalid month name provided",
+        received: { month },
+        validMonths: [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ],
+      });
+      return;
+    }
+
+    // Create date using the month index
+    const date = new Date(year, monthIndex, day);
+
+    if (isNaN(date.getTime())) {
+      res.status(400).json({
+        error: "Invalid date values provided",
+        received: { year, month, day },
+        parsedDate: date,
+      });
+      return;
+    }
 
     // Find the log for this date
     const log = await HabitLog.findOne({
@@ -198,6 +298,9 @@ export const deleteHabitLog = async (
     });
   } catch (error) {
     console.error("Error updating habit log:", error);
-    res.status(500).json({ error: "Failed to update habit log" });
+    res.status(500).json({
+      error: "Failed to update habit log",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 };
