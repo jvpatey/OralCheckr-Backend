@@ -280,7 +280,7 @@ describe("Auth Routes", () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty(
         "message",
-        "Guest account converted and data merged successfully"
+        "Guest account successfully converted to permanent account"
       );
 
       const cookies = res.headers["set-cookie"];
