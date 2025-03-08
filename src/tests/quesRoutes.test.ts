@@ -1,46 +1,44 @@
-import request from "supertest";
-import jwt from "jsonwebtoken";
-import app from "../server";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
 import sequelize from "../db/db";
+import {
+  mockUser,
+  mockGuestUser,
+  mockQuestionnaireData,
+  makeAuthenticatedRequest,
+  makeUnauthenticatedRequest,
+  makeGuestRequest,
+  expectQuestionnaireProperties,
+} from "./utils/testUtils";
 
 // JWT secret for test tokens
-const JWT_SECRET = process.env.JWT_SECRET || "testsecret";
+process.env.JWT_SECRET = "testsecret";
 
 describe("Questionnaire Endpoints", () => {
-  let token: string;
-  let testUser: any;
-
-  beforeAll(async () => {
-    // Create a test user in the database
-    testUser = await User.create({
-      firstName: "Test",
-      lastName: "User",
-      email: "testuser@example.com",
-      password: "password123",
-    });
-
-    // Generate a JWT token for the test user
-    token = jwt.sign({ userId: testUser.userId }, JWT_SECRET);
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
-    await QuestionnaireResponse.destroy({ where: { userId: testUser.userId } });
-    await testUser.destroy();
+    await sequelize.close();
   });
 
   describe("POST /questionnaire/response", () => {
     it("should create a new questionnaire response if none exists", async () => {
-      const responseData = {
-        responses: { 1: 2, 2: [1, 3] },
-        totalScore: 85,
-      };
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue(null);
+      jest.spyOn(QuestionnaireResponse, "create").mockResolvedValue({
+        userId: mockUser.userId,
+        responses: mockQuestionnaireData.responses,
+        totalScore: mockQuestionnaireData.totalScore,
+        currentQuestion: 1,
+      } as any);
 
-      const res = await request(app)
-        .post("/questionnaire/response")
-        .set("Cookie", [`accessToken=${token}`])
-        .send(responseData);
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/questionnaire/response",
+        mockQuestionnaireData
+      );
 
       expect(res.statusCode).toEqual(201);
       expect(res.body).toHaveProperty(
@@ -51,15 +49,34 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should update an existing questionnaire response", async () => {
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+
+      const updatedResponse = {
+        userId: mockUser.userId,
+        responses: { 1: 3, 2: [2, 3] },
+        totalScore: 90,
+        currentQuestion: 1,
+      };
+
+      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+        userId: mockUser.userId,
+        responses: { 1: 2, 2: [1, 3] },
+        totalScore: 85,
+        currentQuestion: 1,
+        update: jest.fn().mockResolvedValue(updatedResponse),
+        toJSON: () => updatedResponse,
+      } as any);
+
       const responseData = {
         responses: { 1: 3, 2: [2, 3] },
         totalScore: 90,
       };
 
-      const res = await request(app)
-        .post("/questionnaire/response")
-        .set("Cookie", [`accessToken=${token}`])
-        .send(responseData);
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/questionnaire/response",
+        responseData
+      );
 
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty(
@@ -77,9 +94,11 @@ describe("Questionnaire Endpoints", () => {
         totalScore: 90,
       };
 
-      const res = await request(app)
-        .post("/questionnaire/response")
-        .send(responseData);
+      const res = await makeUnauthenticatedRequest(
+        "post",
+        "/questionnaire/response",
+        responseData
+      );
 
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
@@ -89,36 +108,36 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should return 400 when required fields are missing", async () => {
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+
       const responseData = {
         // Missing totalScore
         responses: { 1: 3, 2: [2, 3] },
       };
 
-      const res = await request(app)
-        .post("/questionnaire/response")
-        .set("Cookie", [`accessToken=${token}`])
-        .send(responseData);
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/questionnaire/response",
+        responseData
+      );
 
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("error", "Missing required fields");
     });
 
     it("should return 404 when user is not found", async () => {
-      // Create a token with a non-existent user ID
-      const invalidToken = jwt.sign({ userId: 9999 }, JWT_SECRET);
-
       const responseData = {
         responses: { 1: 3, 2: [2, 3] },
         totalScore: 90,
       };
 
-      // Mock User.findByPk to return null
       jest.spyOn(User, "findByPk").mockResolvedValueOnce(null);
-
-      const res = await request(app)
-        .post("/questionnaire/response")
-        .set("Cookie", [`accessToken=${invalidToken}`])
-        .send(responseData);
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/questionnaire/response",
+        responseData,
+        9999 // Non-existent user ID
+      );
 
       expect(res.statusCode).toEqual(404);
       expect(res.body).toHaveProperty("error", "User not found");
@@ -127,18 +146,27 @@ describe("Questionnaire Endpoints", () => {
 
   describe("GET /questionnaire/response", () => {
     it("should retrieve the questionnaire response for the user", async () => {
-      const res = await request(app)
-        .get("/questionnaire/response")
-        .set("Cookie", [`accessToken=${token}`]);
+      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+        userId: mockUser.userId,
+        responses: mockQuestionnaireData.responses,
+        totalScore: mockQuestionnaireData.totalScore,
+        currentQuestion: mockQuestionnaireData.currentQuestion,
+      } as any);
+
+      const res = await makeAuthenticatedRequest(
+        "get",
+        "/questionnaire/response"
+      );
 
       expect(res.statusCode).toEqual(200);
-      expect(res.body).toHaveProperty("responses");
-      expect(res.body).toHaveProperty("totalScore");
-      expect(res.body).toHaveProperty("currentQuestion");
+      expectQuestionnaireProperties(res.body);
     });
 
     it("should return 401 when no token is provided", async () => {
-      const res = await request(app).get("/questionnaire/response");
+      const res = await makeUnauthenticatedRequest(
+        "get",
+        "/questionnaire/response"
+      );
 
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
@@ -148,15 +176,14 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should return 404 when no response is found for the user", async () => {
-      // Create a token with a user ID that has no responses
-      const noResponseToken = jwt.sign({ userId: 8888 }, JWT_SECRET);
-
-      // Mock QuestionnaireResponse.findOne to return null
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValueOnce(null);
 
-      const res = await request(app)
-        .get("/questionnaire/response")
-        .set("Cookie", [`accessToken=${noResponseToken}`]);
+      const res = await makeAuthenticatedRequest(
+        "get",
+        "/questionnaire/response",
+        null,
+        8888 // User ID with no responses
+      );
 
       expect(res.statusCode).toEqual(404);
       expect(res.body).toHaveProperty(
@@ -168,15 +195,27 @@ describe("Questionnaire Endpoints", () => {
 
   describe("PUT /questionnaire/progress", () => {
     it("should update the questionnaire progress", async () => {
+      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+        userId: mockUser.userId,
+        responses: { 1: 2 },
+        currentQuestion: 1,
+        update: jest.fn().mockResolvedValue({
+          userId: mockUser.userId,
+          responses: { 1: 2 },
+          currentQuestion: 2,
+        }),
+      } as any);
+
       const progressData = {
         responses: { 1: 2 },
         currentQuestion: 2,
       };
 
-      const res = await request(app)
-        .put("/questionnaire/progress")
-        .set("Cookie", [`accessToken=${token}`])
-        .send(progressData);
+      const res = await makeAuthenticatedRequest(
+        "put",
+        "/questionnaire/progress",
+        progressData
+      );
 
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty(
@@ -192,9 +231,11 @@ describe("Questionnaire Endpoints", () => {
         currentQuestion: 2,
       };
 
-      const res = await request(app)
-        .put("/questionnaire/progress")
-        .send(progressData);
+      const res = await makeUnauthenticatedRequest(
+        "put",
+        "/questionnaire/progress",
+        progressData
+      );
 
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
@@ -209,23 +250,18 @@ describe("Questionnaire Endpoints", () => {
         responses: { 1: 2 },
       };
 
-      const res = await request(app)
-        .put("/questionnaire/progress")
-        .set("Cookie", [`accessToken=${token}`])
-        .send(progressData);
+      const res = await makeAuthenticatedRequest(
+        "put",
+        "/questionnaire/progress",
+        progressData
+      );
 
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("error", "Missing required fields");
     });
 
     it("should create a new record if none exists", async () => {
-      // Create a token for a user with no existing progress
-      const newUserToken = jwt.sign({ userId: 7777 }, JWT_SECRET);
-
-      // Mock QuestionnaireResponse.findOne to return null
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValueOnce(null);
-
-      // Mock QuestionnaireResponse.create
       jest.spyOn(QuestionnaireResponse, "create").mockResolvedValueOnce({
         userId: 7777,
         responses: { 1: 2 },
@@ -237,10 +273,12 @@ describe("Questionnaire Endpoints", () => {
         currentQuestion: 2,
       };
 
-      const res = await request(app)
-        .put("/questionnaire/progress")
-        .set("Cookie", [`accessToken=${newUserToken}`])
-        .send(progressData);
+      const res = await makeAuthenticatedRequest(
+        "put",
+        "/questionnaire/progress",
+        progressData,
+        7777 // User ID with no existing progress
+      );
 
       expect(res.statusCode).toEqual(201);
       expect(res.body).toHaveProperty(
@@ -252,9 +290,16 @@ describe("Questionnaire Endpoints", () => {
 
   describe("GET /questionnaire/progress", () => {
     it("should retrieve the questionnaire progress for the user", async () => {
-      const res = await request(app)
-        .get("/questionnaire/progress")
-        .set("Cookie", [`accessToken=${token}`]);
+      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+        userId: mockUser.userId,
+        responses: { 1: 2 },
+        currentQuestion: 2,
+      } as any);
+
+      const res = await makeAuthenticatedRequest(
+        "get",
+        "/questionnaire/progress"
+      );
 
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty("responses");
@@ -262,7 +307,10 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should return 401 when no token is provided", async () => {
-      const res = await request(app).get("/questionnaire/progress");
+      const res = await makeUnauthenticatedRequest(
+        "get",
+        "/questionnaire/progress"
+      );
 
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
@@ -272,15 +320,14 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should return 404 when no progress is found for the user", async () => {
-      // Create a token with a user ID that has no progress
-      const noProgressToken = jwt.sign({ userId: 6666 }, JWT_SECRET);
-
-      // Mock QuestionnaireResponse.findOne to return null
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValueOnce(null);
 
-      const res = await request(app)
-        .get("/questionnaire/progress")
-        .set("Cookie", [`accessToken=${noProgressToken}`]);
+      const res = await makeAuthenticatedRequest(
+        "get",
+        "/questionnaire/progress",
+        null,
+        6666 // User ID with no progress
+      );
 
       expect(res.statusCode).toEqual(404);
       expect(res.body).toHaveProperty(
@@ -292,17 +339,9 @@ describe("Questionnaire Endpoints", () => {
 
   // Add tests for guest questionnaire functionality
   describe("POST /questionnaire/guest", () => {
-    let guestToken: string;
-
-    beforeEach(() => {
-      // Generate a guest token
-      guestToken = jwt.sign({ userId: 5555, role: "guest" }, JWT_SECRET);
-    });
-
     it("should save guest questionnaire responses", async () => {
-      // Mock QuestionnaireResponse.create
       jest.spyOn(QuestionnaireResponse, "create").mockResolvedValueOnce({
-        userId: 5555,
+        userId: mockGuestUser.userId,
         responses: { 1: 2, 2: [1, 3] },
         totalScore: 75,
       } as any);
@@ -312,28 +351,29 @@ describe("Questionnaire Endpoints", () => {
         totalScore: 75,
       };
 
-      const res = await request(app)
-        .post("/questionnaire/guest")
-        .set("Cookie", [`accessToken=${guestToken}`])
-        .send(responseData);
+      const res = await makeGuestRequest(
+        "post",
+        "/questionnaire/guest",
+        responseData
+      );
 
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty("message", "Guest responses saved");
     });
 
     it("should return 401 for non-guest users", async () => {
-      // Generate a regular user token
-      const regularToken = jwt.sign({ userId: 1, role: "user" }, JWT_SECRET);
-
       const responseData = {
         responses: { 1: 2, 2: [1, 3] },
         totalScore: 75,
       };
 
-      const res = await request(app)
-        .post("/questionnaire/guest")
-        .set("Cookie", [`accessToken=${regularToken}`])
-        .send(responseData);
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/questionnaire/guest",
+        responseData,
+        mockUser.userId,
+        "user"
+      );
 
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty("error", "Unauthorized");
@@ -345,15 +385,13 @@ describe("Questionnaire Endpoints", () => {
         totalScore: 75,
       };
 
-      const res = await request(app)
-        .post("/questionnaire/guest")
-        .send(responseData);
+      const res = await makeUnauthenticatedRequest(
+        "post",
+        "/questionnaire/guest",
+        responseData
+      );
 
       expect(res.statusCode).toEqual(401);
     });
   });
-});
-
-afterAll(async () => {
-  await sequelize.close();
 });
