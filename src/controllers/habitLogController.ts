@@ -14,6 +14,10 @@ import {
   getDate,
   parseISO,
 } from "date-fns";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+
+// Use UTC timezone for consistent date handling
+const TIMEZONE = "UTC";
 
 /* -- Get logs for a specific habit -- */
 export const getHabitLogs = async (
@@ -36,19 +40,22 @@ export const getHabitLogs = async (
     if (year && month) {
       try {
         // Parse the date string to get a date object for the first day of the month
-        const monthDate = parse(
+        const localMonthDate = parse(
           `${month} 1, ${year}`,
           "MMMM d, yyyy",
           new Date()
         );
 
-        if (!isValid(monthDate)) {
+        if (!isValid(localMonthDate)) {
           res.status(400).json({
             error: "Invalid date format",
             received: { year, month },
           });
           return;
         }
+
+        // Convert to UTC to ensure consistent timezone handling
+        const monthDate = toZonedTime(localMonthDate, TIMEZONE);
 
         const startDate = startOfMonth(monthDate);
         const endDate = endOfMonth(monthDate);
@@ -85,8 +92,13 @@ export const getHabitLogs = async (
 
     // Transform logs to flat structure only
     const transformedLogs = logs.map((log) => {
-      const logDate = new Date(log.date);
-      const isoDate = format(logDate, "yyyy-MM-dd");
+      // Convert the date to a proper UTC date string
+      // This ensures consistent date handling regardless of local timezone
+      const isoDate = formatInTimeZone(
+        new Date(log.date),
+        TIMEZONE,
+        "yyyy-MM-dd"
+      );
 
       // In tests, log is often a plain object, so we need to handle both cases
       const habitName =
@@ -141,13 +153,13 @@ export const logHabit = async (
     let parsedDate;
     try {
       // Parse the date using date-fns
-      parsedDate = parse(
+      const localDate = parse(
         `${month} ${day}, ${year}`,
         "MMMM d, yyyy",
         new Date()
       );
 
-      if (!isValid(parsedDate)) {
+      if (!isValid(localDate)) {
         res.status(400).json({
           error: "Invalid date values provided",
           received: { year, month, day },
@@ -155,12 +167,15 @@ export const logHabit = async (
         return;
       }
 
+      // Convert to UTC to ensure consistent timezone handling
+      parsedDate = toZonedTime(localDate, TIMEZONE);
+
       // Validate the date is not in the future
       if (isFuture(parsedDate)) {
         res.status(400).json({
           error: "Cannot log habits for future dates",
           received: { year, month, day },
-          currentDate: format(new Date(), "yyyy-MM-dd"),
+          currentDate: formatInTimeZone(new Date(), TIMEZONE, "yyyy-MM-dd"),
         });
         return;
       }
@@ -214,8 +229,8 @@ export const logHabit = async (
         count: currentCount + 1,
       });
 
-      // Return only flat format
-      const isoDate = format(parsedDate, "yyyy-MM-dd");
+      // Return only flat format with consistent timezone handling
+      const isoDate = formatInTimeZone(parsedDate, TIMEZONE, "yyyy-MM-dd");
 
       res.status(200).json({
         log: {
