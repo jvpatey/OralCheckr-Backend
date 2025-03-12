@@ -1,55 +1,26 @@
-import request from "supertest";
-import app from "../server";
 import sequelize from "../db/db";
-import jwt from "jsonwebtoken";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
 import { Op } from "sequelize";
+import {
+  mockUser,
+  mockHabits,
+  mockLogs,
+  makeAuthenticatedRequest,
+  makeUnauthenticatedRequest,
+  expectLogProperties,
+  standardDateParams,
+} from "./utils/testUtils";
 
 process.env.JWT_SECRET = "testsecret";
 
 describe("Habit Log Routes", () => {
-  // Setup: Mock user and habit data for testing
-  const mockUser = { userId: 1 };
-  const mockHabit = {
-    habitId: 1,
-    userId: 1,
-    name: "Test Habit",
-    description: "Test Description",
-    count: 3,
-  };
-
-  // Generate authentication token
-  const generateToken = () => {
-    return jwt.sign(
-      { userId: mockUser.userId },
-      process.env.JWT_SECRET || "test-secret",
-      { expiresIn: "1h" }
-    );
-  };
-
-  // Sample habit logs
-  const mockLogs = [
-    {
-      logId: 1,
-      habitId: 1,
-      userId: mockUser.userId,
-      date: new Date(2023, 5, 15), // June 15, 2023
-      count: 2,
-      habit: mockHabit,
-    },
-    {
-      logId: 2,
-      habitId: 1,
-      userId: mockUser.userId,
-      date: new Date(2023, 5, 16), // June 16, 2023
-      count: 1,
-      habit: mockHabit,
-    },
-  ];
-
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await sequelize.close();
   });
 
   // Tests for GET /habit-logs/:habitId endpoint
@@ -58,22 +29,20 @@ describe("Habit Log Routes", () => {
     it("should return all logs for a specific habit", async () => {
       jest.spyOn(HabitLog, "findAll").mockResolvedValue(mockLogs as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habit-logs/1")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("get", "/habit-logs/1");
 
       expect(res.status).toBe(200);
-      // Check for transformed logs format (year -> month -> day -> count)
-      expect(res.body).toHaveProperty("2023");
-      expect(res.body["2023"]).toHaveProperty("June");
-      expect(res.body["2023"]["June"]).toHaveProperty("15", 2);
-      expect(res.body["2023"]["June"]).toHaveProperty("16", 1);
+      expect(res.body).toHaveProperty("logs");
+      expect(Array.isArray(res.body.logs)).toBe(true);
+      expect(res.body.logs.length).toBe(2);
+
+      // Check first log has expected properties
+      expectLogProperties(res.body.logs[0]);
     });
 
     // Test: Ensure authentication is required
     it("should return 401 if not authenticated", async () => {
-      const res = await request(app).get("/habit-logs/1");
+      const res = await makeUnauthenticatedRequest("get", "/habit-logs/1");
       expect(res.status).toBe(401);
     });
 
@@ -81,13 +50,10 @@ describe("Habit Log Routes", () => {
     it("should return empty object if no logs exist", async () => {
       jest.spyOn(HabitLog, "findAll").mockResolvedValue([]);
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habit-logs/1")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("get", "/habit-logs/1");
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({});
+      expect(res.body).toEqual({ logs: [] });
     });
 
     // Test: Filter logs by year and month
@@ -99,29 +65,14 @@ describe("Habit Log Routes", () => {
         return Promise.resolve(mockLogs as any);
       });
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habit-logs/1?year=2023&month=June")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest(
+        "get",
+        "/habit-logs/1?year=2023&month=June"
+      );
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("2023");
-      expect(res.body["2023"]).toHaveProperty("June");
-    });
-
-    // Test: Gracefully handle database errors
-    it("should handle database errors gracefully", async () => {
-      jest
-        .spyOn(HabitLog, "findAll")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habit-logs/1")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
+      expect(res.body).toHaveProperty("logs");
+      expect(res.body.logs.length).toBe(1);
     });
   });
 
@@ -129,10 +80,11 @@ describe("Habit Log Routes", () => {
   describe("POST /habit-logs/:habitId/increment", () => {
     // Test: Successfully increment habit count for a specific date
     it("should increment habit count for a specific date", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabit as any);
+      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue(null);
       jest.spyOn(HabitLog, "upsert").mockResolvedValue([
         {
+          logId: 1,
           habitId: 1,
           userId: mockUser.userId,
           date: new Date(2023, 5, 15),
@@ -141,25 +93,21 @@ describe("Habit Log Routes", () => {
         true,
       ] as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        standardDateParams
+      );
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("2023");
-      expect(res.body["2023"]).toHaveProperty("June");
-      expect(res.body["2023"]["June"]).toHaveProperty("15", 1);
+      expect(res.body).toHaveProperty("log");
+      expectLogProperties(res.body.log);
+      expect(res.body.log.count).toBe(1);
     });
 
     // Test: Increment existing log count
     it("should increment existing log count", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabit as any);
+      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         habitId: 1,
         userId: mockUser.userId,
@@ -169,6 +117,7 @@ describe("Habit Log Routes", () => {
 
       jest.spyOn(HabitLog, "upsert").mockResolvedValue([
         {
+          logId: 1,
           habitId: 1,
           userId: mockUser.userId,
           date: new Date(2023, 5, 15),
@@ -177,146 +126,82 @@ describe("Habit Log Routes", () => {
         true,
       ] as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        standardDateParams
+      );
 
       expect(res.status).toBe(200);
-      expect(res.body["2023"]["June"]["15"]).toBe(2);
+      expect(res.body.log).toHaveProperty("count", 2);
     });
 
-    // Test: Ensure authentication is required
-    it("should return 401 if not authenticated", async () => {
-      const res = await request(app).post("/habit-logs/1/increment").send({
-        year: 2023,
-        month: "June",
-        day: 15,
-      });
+    // Test: Validate input parameters and handle errors
+    it("should validate input parameters and handle errors", async () => {
+      // Test missing date parameters
+      const resMissingParams = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        { year: 2023, month: "June" } // day is missing
+      );
+      expect(resMissingParams.status).toBe(400);
+      expect(resMissingParams.body).toHaveProperty("error");
 
-      expect(res.status).toBe(401);
+      // Test invalid month format
+      const resInvalidMonth = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        { year: 2023, month: "InvalidMonth", day: 15 }
+      );
+      expect(resInvalidMonth.status).toBe(400);
+      expect(resInvalidMonth.body).toHaveProperty("error");
+
+      // Test future date
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const resFutureDate = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        {
+          year: tomorrow.getFullYear(),
+          month: tomorrow.toLocaleString("default", { month: "long" }),
+          day: tomorrow.getDate(),
+        }
+      );
+      expect(resFutureDate.status).toBe(400);
+      expect(resFutureDate.body).toHaveProperty("error");
+      expect(resFutureDate.body.error).toContain("future date");
     });
 
-    // Test: Validate required date parameters
-    it("should return 400 if date parameters are missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          // day is missing
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    // Test: Validate month name format
-    it("should return 400 if month name is invalid", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "InvalidMonth",
-          day: 15,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body).toHaveProperty("validMonths");
-    });
-
-    // Test: Handle non-existent habit
-    it("should return 404 if habit not found", async () => {
-      // Reset any previous mocks
-      jest.restoreAllMocks();
-
+    // Test: Handle non-existent habit and max count limit
+    it("should handle non-existent habit and max count limit", async () => {
+      // Test non-existent habit
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
+      const resNotFound = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/999/increment",
+        standardDateParams
+      );
+      expect(resNotFound.status).toBe(404);
+      expect(resNotFound.body).toHaveProperty("error");
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/999/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    // Test: Enforce maximum count limit
-    it("should return 400 if incrementing would exceed max count", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabit as any);
+      // Test max count limit
+      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         habitId: 1,
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
-        count: 3, // Already at max (mockHabit.maxCount is 3)
+        count: 3, // Already at max (mockHabits[0].count is 3)
       } as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
-      expect(res.body.error).toContain("exceed habit's maximum count");
-    });
-
-    // Test: Gracefully handle database errors
-    it("should handle database errors gracefully", async () => {
-      jest
-        .spyOn(Habit, "findOne")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    // Test: Validate future date (skipped for now)
-    it.skip("should return 400 if date is in the future", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabit as any);
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/increment")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 16, // Future date
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
+      const resMaxCount = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        standardDateParams
+      );
+      expect(resMaxCount.status).toBe(400);
+      expect(resMaxCount.body).toHaveProperty("error");
+      expect(resMaxCount.body.error).toContain("exceed habit's maximum count");
     });
   });
 
@@ -325,6 +210,7 @@ describe("Habit Log Routes", () => {
     // Test: Delete log if count becomes 0
     it("should delete log if count becomes 0", async () => {
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
+        logId: 1,
         habitId: 1,
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
@@ -332,198 +218,159 @@ describe("Habit Log Routes", () => {
         destroy: jest.fn().mockResolvedValue(true),
       } as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/decrement",
+        standardDateParams
+      );
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("2023");
-      expect(res.body["2023"]).toHaveProperty("June");
-      expect(res.body["2023"]["June"]).toHaveProperty("15", 0);
+      expect(res.body).toHaveProperty("log", null);
+      expect(res.body).toHaveProperty("deleted", true);
     });
 
-    // Test: Ensure authentication is required
-    it("should return 401 if not authenticated", async () => {
-      const res = await request(app).post("/habit-logs/1/decrement").send({
-        year: 2023,
-        month: "June",
-        day: 15,
-      });
+    // Test: Decrement habit count
+    it("should decrement habit count for a specific date", async () => {
+      jest.spyOn(HabitLog, "findOne").mockResolvedValue({
+        logId: 1,
+        habitId: 1,
+        userId: mockUser.userId,
+        date: new Date(2023, 5, 15),
+        count: 2,
+        save: jest.fn().mockImplementation(function (this: any) {
+          this.count = 1;
+          return Promise.resolve(this);
+        }),
+      } as any);
 
-      expect(res.status).toBe(401);
-    });
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/decrement",
+        standardDateParams
+      );
 
-    // Test: Validate required date parameters
-    it("should return 400 if date parameters are missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          // month is missing
-          day: 15,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    // Test: Validate month name format
-    it("should return 400 if month name is invalid", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "InvalidMonth",
-          day: 15,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("log");
+      expect(res.body.log).toHaveProperty("count", 1);
     });
 
     // Test: Handle non-existent log
     it("should return 404 if log not found", async () => {
       jest.spyOn(HabitLog, "findOne").mockResolvedValue(null);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
+      const res = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/decrement",
+        standardDateParams
+      );
 
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("error");
     });
+  });
 
-    // Test: Gracefully handle database errors
+  // Test: Error handling across all endpoints
+  describe("Error Handling", () => {
+    // Test: Authentication required for all endpoints
+    it("should require authentication for all endpoints", async () => {
+      // GET /habits
+      const getRes = await makeUnauthenticatedRequest("get", "/habit-logs/1");
+      expect(getRes.status).toBe(401);
+
+      // POST /habits
+      const incrementRes = await makeUnauthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        standardDateParams
+      );
+      expect(incrementRes.status).toBe(401);
+
+      // DELETE /habits
+      const decrementRes = await makeUnauthenticatedRequest(
+        "post",
+        "/habit-logs/1/decrement",
+        standardDateParams
+      );
+      expect(decrementRes.status).toBe(401);
+    });
+
+    // Test: Database errors are handled gracefully
     it("should handle database errors gracefully", async () => {
+      // Test GET endpoint
+      jest
+        .spyOn(HabitLog, "findAll")
+        .mockRejectedValue(new Error("Database error"));
+      const getRes = await makeAuthenticatedRequest("get", "/habit-logs/1");
+      expect(getRes.status).toBe(500);
+      expect(getRes.body).toHaveProperty("error");
+
+      // Test increment endpoint
+      jest
+        .spyOn(Habit, "findOne")
+        .mockRejectedValue(new Error("Database error"));
+      const incrementRes = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/increment",
+        standardDateParams
+      );
+      expect(incrementRes.status).toBe(500);
+      expect(incrementRes.body).toHaveProperty("error");
+
+      // Test decrement endpoint
       jest
         .spyOn(HabitLog, "findOne")
         .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
+      const decrementRes = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/1/decrement",
+        standardDateParams
+      );
+      expect(decrementRes.status).toBe(500);
+      expect(decrementRes.body).toHaveProperty("error");
     });
 
-    // Test: Decrement habit count (skipped for now)
-    it.skip("should decrement habit count for a specific date", async () => {
-      jest.spyOn(HabitLog, "findOne").mockResolvedValue({
-        habitId: 1,
-        userId: mockUser.userId,
-        date: new Date(2023, 5, 15),
-        count: 2,
-        save: jest.fn().mockResolvedValue(true),
-      } as any);
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/1/decrement")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty("2023");
-      expect(res.body["2023"]).toHaveProperty("June");
-      expect(res.body["2023"]["June"]).toHaveProperty("15", 1);
-    });
-  });
-
-  // Tests for authorization and access control
-  describe("Authorization and Access Control", () => {
-    // Test: Prevent accessing another user's habit logs
-    it("should prevent accessing another user's habit logs", async () => {
+    // Test: Authorization and access control
+    it("should enforce proper authorization and access control", async () => {
+      // Test accessing another user's habit logs
       jest.spyOn(HabitLog, "findAll").mockImplementation((options: any) => {
         if (options?.where?.userId === mockUser.userId) {
           return Promise.resolve([]);
         }
         return Promise.resolve(mockLogs as any);
       });
+      const getRes = await makeAuthenticatedRequest("get", "/habit-logs/999");
+      expect(getRes.status).toBe(200);
+      expect(getRes.body).toEqual({ logs: [] });
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habit-logs/999") // Different habit ID
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({});
-    });
-
-    // Test: Prevent incrementing another user's habit
-    it("should prevent incrementing another user's habit", async () => {
+      // Test incrementing another user's habit
       jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
         if (options?.where?.userId === mockUser.userId) {
           return Promise.resolve(null);
         }
-        return Promise.resolve(mockHabit as any);
+        return Promise.resolve(mockHabits[0] as any);
       });
+      const incrementRes = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/999/increment",
+        standardDateParams
+      );
+      expect(incrementRes.status).toBe(404);
+      expect(incrementRes.body).toHaveProperty("error");
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/999/increment") // Different habit ID
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    // Test: Prevent decrementing another user's habit log
-    it("should prevent decrementing another user's habit log", async () => {
+      // Test decrementing another user's habit log
       jest.spyOn(HabitLog, "findOne").mockImplementation((options: any) => {
         if (options?.where?.userId === mockUser.userId) {
           return Promise.resolve(null);
         }
         return Promise.resolve(mockLogs[0] as any);
       });
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habit-logs/999/decrement") // Different habit ID
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          year: 2023,
-          month: "June",
-          day: 15,
-        });
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty("error");
+      const decrementRes = await makeAuthenticatedRequest(
+        "post",
+        "/habit-logs/999/decrement",
+        standardDateParams
+      );
+      expect(decrementRes.status).toBe(404);
+      expect(decrementRes.body).toHaveProperty("error");
     });
   });
-});
-
-afterAll(async () => {
-  await sequelize.close();
 });

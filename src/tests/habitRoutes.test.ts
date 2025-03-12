@@ -1,35 +1,15 @@
-import request from "supertest";
-import app from "../server";
 import sequelize from "../db/db";
-import jwt from "jsonwebtoken";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
-import User from "../models/userModel";
+import {
+  mockHabits,
+  makeAuthenticatedRequest,
+  makeUnauthenticatedRequest,
+} from "./utils/testUtils";
 
 process.env.JWT_SECRET = "testsecret";
 
 describe("Habit Routes", () => {
-  // Test user
-  const mockUser = {
-    userId: 1,
-    email: "test@example.com",
-    firstName: "Test",
-    lastName: "User",
-  };
-
-  // Auth token generator
-  const generateToken = () => {
-    return jwt.sign({ userId: mockUser.userId }, process.env.JWT_SECRET!, {
-      expiresIn: "1h",
-    });
-  };
-
-  // Sample habits
-  const mockHabits = [
-    { habitId: 1, name: "Brush teeth", count: 2, userId: mockUser.userId },
-    { habitId: 2, name: "Floss", count: 1, userId: mockUser.userId },
-  ];
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -39,10 +19,7 @@ describe("Habit Routes", () => {
     it("should return all habits for the authenticated user", async () => {
       jest.spyOn(Habit, "findAll").mockResolvedValue(mockHabits as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("get", "/habits");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(2);
@@ -50,36 +27,14 @@ describe("Habit Routes", () => {
       expect(res.body[1].name).toBe("Floss");
     });
 
-    it("should return 401 if not authenticated", async () => {
-      const res = await request(app).get("/habits");
-      expect(res.status).toBe(401);
-    });
-
     it("should return empty array if user has no habits", async () => {
       jest.spyOn(Habit, "findAll").mockResolvedValue([]);
 
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("get", "/habits");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(0);
       expect(Array.isArray(res.body)).toBe(true);
-    });
-
-    it("should handle database errors gracefully", async () => {
-      jest
-        .spyOn(Habit, "findAll")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .get("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
     });
   });
 
@@ -92,89 +47,55 @@ describe("Habit Routes", () => {
         toJSON: () => mockHabits[0],
       } as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth",
-          count: 2,
-        });
+      const res = await makeAuthenticatedRequest("post", "/habits", {
+        name: "Brush teeth",
+        count: 2,
+      });
 
       expect(res.status).toBe(201);
       expect(res.body.name).toBe("Brush teeth");
       expect(res.body.count).toBe(2);
     });
 
-    it("should return 400 if name is missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          count: 2,
-        });
+    it("should validate input parameters", async () => {
+      // Test missing name
+      const resMissingName = await makeAuthenticatedRequest("post", "/habits", {
+        count: 2,
+      });
+      expect(resMissingName.status).toBe(400);
 
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if count is missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      // Test missing count
+      const resMissingCount = await makeAuthenticatedRequest(
+        "post",
+        "/habits",
+        {
           name: "Brush teeth",
-        });
+        }
+      );
+      expect(resMissingCount.status).toBe(400);
 
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if count is less than 1", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      // Test invalid count
+      const resInvalidCount = await makeAuthenticatedRequest(
+        "post",
+        "/habits",
+        {
           name: "Brush teeth",
           count: 0,
-        });
+        }
+      );
+      expect(resInvalidCount.status).toBe(400);
 
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if habit with same name already exists", async () => {
+      // Test duplicate habit name
       jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      const resDuplicateName = await makeAuthenticatedRequest(
+        "post",
+        "/habits",
+        {
           name: "Brush teeth",
           count: 2,
-        });
-
-      expect(res.status).toBe(400);
-    });
-
-    it("should handle database errors gracefully", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(null);
-      jest
-        .spyOn(Habit, "create")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .post("/habits")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth",
-          count: 2,
-        });
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
+        }
+      );
+      expect(resDuplicateName.status).toBe(400);
     });
   });
 
@@ -204,73 +125,57 @@ describe("Habit Routes", () => {
         return Promise.resolve(null);
       });
 
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth twice",
-          count: 3,
-        });
+      const res = await makeAuthenticatedRequest("put", "/habits/1", {
+        name: "Brush teeth twice",
+        count: 3,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.name).toBe("Brush teeth twice");
       expect(res.body.count).toBe(3);
     });
 
-    it("should return 404 if habit not found", async () => {
+    it("should handle validation and not found errors", async () => {
+      // Test habit not found
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
+      const resNotFound = await makeAuthenticatedRequest("put", "/habits/999", {
+        name: "Brush teeth twice",
+        count: 3,
+      });
+      expect(resNotFound.status).toBe(404);
 
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/999")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth twice",
+      // Test missing name
+      const resMissingName = await makeAuthenticatedRequest(
+        "put",
+        "/habits/1",
+        {
           count: 3,
-        });
+        }
+      );
+      expect(resMissingName.status).toBe(400);
 
-      expect(res.status).toBe(404);
-    });
-
-    it("should return 400 if name is missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          count: 3,
-        });
-
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if count is missing", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      // Test missing count
+      const resMissingCount = await makeAuthenticatedRequest(
+        "put",
+        "/habits/1",
+        {
           name: "Brush teeth twice",
-        });
+        }
+      );
+      expect(resMissingCount.status).toBe(400);
 
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if count is less than 1", async () => {
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      // Test invalid count
+      const resInvalidCount = await makeAuthenticatedRequest(
+        "put",
+        "/habits/1",
+        {
           name: "Brush teeth twice",
           count: 0,
-        });
+        }
+      );
+      expect(resInvalidCount.status).toBe(400);
 
-      expect(res.status).toBe(400);
-    });
-
-    it("should return 400 if another habit with the same name exists", async () => {
+      // Test duplicate habit name
       jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
         // Return habit for update
         if (options?.where?.habitId === 1) {
@@ -286,35 +191,16 @@ describe("Habit Routes", () => {
         return Promise.resolve(null);
       });
 
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
+      const resDuplicateName = await makeAuthenticatedRequest(
+        "put",
+        "/habits/1",
+        {
           name: "Floss", // Name already exists
           count: 3,
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    it("should handle database errors gracefully", async () => {
-      jest
-        .spyOn(Habit, "findOne")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth twice",
-          count: 3,
-        });
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
+        }
+      );
+      expect(resDuplicateName.status).toBe(400);
+      expect(resDuplicateName.body).toHaveProperty("error");
     });
   });
 
@@ -328,10 +214,7 @@ describe("Habit Routes", () => {
 
       jest.spyOn(HabitLog, "destroy").mockResolvedValue(2 as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits/1")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("delete", "/habits/1");
 
       expect(res.status).toBe(200);
       expect(res.body.message).toContain("deleted successfully");
@@ -340,41 +223,9 @@ describe("Habit Routes", () => {
     it("should return 404 if habit not found", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
 
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits/999")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("delete", "/habits/999");
 
       expect(res.status).toBe(404);
-    });
-
-    it("should handle database errors gracefully", async () => {
-      jest
-        .spyOn(Habit, "findOne")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits/1")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
-    });
-
-    it("should handle errors when deleting associated logs", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
-      jest
-        .spyOn(HabitLog, "destroy")
-        .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits/1")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
     });
   });
 
@@ -384,10 +235,7 @@ describe("Habit Routes", () => {
       jest.spyOn(Habit, "destroy").mockResolvedValue(2 as any);
       jest.spyOn(HabitLog, "destroy").mockResolvedValue(5 as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("delete", "/habits");
 
       expect(res.status).toBe(200);
       expect(res.body.message).toContain(
@@ -399,60 +247,117 @@ describe("Habit Routes", () => {
       jest.spyOn(Habit, "destroy").mockResolvedValue(0 as any);
       jest.spyOn(HabitLog, "destroy").mockResolvedValue(0 as any);
 
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
+      const res = await makeAuthenticatedRequest("delete", "/habits");
 
       expect(res.status).toBe(200);
       expect(res.body.message).toContain(
         "All habits and their logs deleted successfully"
       );
     });
+  });
+
+  // Common tests for all endpoints
+  describe("Common Behavior", () => {
+    it("should require authentication for all endpoints", async () => {
+      // GET /habits
+      const getRes = await makeUnauthenticatedRequest("get", "/habits");
+      expect(getRes.status).toBe(401);
+
+      // POST /habits
+      const postRes = await makeUnauthenticatedRequest("post", "/habits", {
+        name: "Brush teeth",
+        count: 2,
+      });
+      expect(postRes.status).toBe(401);
+
+      // PUT /habits/:id
+      const putRes = await makeUnauthenticatedRequest("put", "/habits/1", {
+        name: "Brush teeth twice",
+        count: 3,
+      });
+      expect(putRes.status).toBe(401);
+
+      // DELETE /habits/:id
+      const deleteOneRes = await makeUnauthenticatedRequest(
+        "delete",
+        "/habits/1"
+      );
+      expect(deleteOneRes.status).toBe(401);
+
+      // DELETE /habits
+      const deleteAllRes = await makeUnauthenticatedRequest(
+        "delete",
+        "/habits"
+      );
+      expect(deleteAllRes.status).toBe(401);
+    });
 
     it("should handle database errors gracefully", async () => {
+      // GET /habits
+      jest
+        .spyOn(Habit, "findAll")
+        .mockRejectedValue(new Error("Database error"));
+      const getRes = await makeAuthenticatedRequest("get", "/habits");
+      expect(getRes.status).toBe(500);
+      expect(getRes.body).toHaveProperty("error");
+
+      // POST /habits
+      jest.spyOn(Habit, "findOne").mockResolvedValue(null);
+      jest
+        .spyOn(Habit, "create")
+        .mockRejectedValue(new Error("Database error"));
+      const postRes = await makeAuthenticatedRequest("post", "/habits", {
+        name: "Brush teeth",
+        count: 2,
+      });
+      expect(postRes.status).toBe(500);
+      expect(postRes.body).toHaveProperty("error");
+
+      // PUT /habits/:id
+      jest
+        .spyOn(Habit, "findOne")
+        .mockRejectedValue(new Error("Database error"));
+      const putRes = await makeAuthenticatedRequest("put", "/habits/1", {
+        name: "Brush teeth twice",
+        count: 3,
+      });
+      expect(putRes.status).toBe(500);
+      expect(putRes.body).toHaveProperty("error");
+
+      // DELETE /habits/:id
+      jest
+        .spyOn(Habit, "findOne")
+        .mockRejectedValue(new Error("Database error"));
+      const deleteOneRes = await makeAuthenticatedRequest(
+        "delete",
+        "/habits/1"
+      );
+      expect(deleteOneRes.status).toBe(500);
+      expect(deleteOneRes.body).toHaveProperty("error");
+
+      // DELETE /habits
       jest
         .spyOn(HabitLog, "destroy")
         .mockRejectedValue(new Error("Database error"));
-
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error");
-    });
-  });
-
-  // Authorization tests
-  describe("Authorization and Access Control", () => {
-    it("should prevent accessing another user's habit", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(null);
-
-      const token = generateToken();
-      const res = await request(app)
-        .put("/habits/1")
-        .set("Cookie", [`accessToken=${token}`])
-        .send({
-          name: "Brush teeth twice",
-          count: 3,
-        });
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty("error", "Habit not found");
+      const deleteAllRes = await makeAuthenticatedRequest("delete", "/habits");
+      expect(deleteAllRes.status).toBe(500);
+      expect(deleteAllRes.body).toHaveProperty("error");
     });
 
-    it("should prevent deleting another user's habit", async () => {
+    it("should enforce proper authorization and access control", async () => {
+      // Prevent accessing another user's habit
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
+      const putRes = await makeAuthenticatedRequest("put", "/habits/1", {
+        name: "Brush teeth twice",
+        count: 3,
+      });
+      expect(putRes.status).toBe(404);
+      expect(putRes.body).toHaveProperty("error", "Habit not found");
 
-      const token = generateToken();
-      const res = await request(app)
-        .delete("/habits/1")
-        .set("Cookie", [`accessToken=${token}`]);
-
-      expect(res.status).toBe(404);
-      expect(res.body).toHaveProperty("error", "Habit not found");
+      // Prevent deleting another user's habit
+      const deleteRes = await makeAuthenticatedRequest("delete", "/habits/1");
+      expect(deleteRes.status).toBe(404);
+      expect(deleteRes.body).toHaveProperty("error", "Habit not found");
     });
   });
 });

@@ -3,6 +3,21 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import HabitLog from "../models/habitLogModel";
 import Habit from "../models/habitModel";
 import { Op } from "sequelize";
+import {
+  parse,
+  isValid,
+  isFuture,
+  startOfMonth,
+  endOfMonth,
+  format,
+  getYear,
+  getDate,
+  parseISO,
+} from "date-fns";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+
+// Use UTC timezone for consistent date handling
+const TIMEZONE = "UTC";
 
 /* -- Get logs for a specific habit -- */
 export const getHabitLogs = async (
@@ -23,21 +38,39 @@ export const getHabitLogs = async (
     const dateFilter: any = {};
 
     if (year && month) {
-      // Convert month name to month number (0-11)
-      const startDate = new Date(
-        parseInt(year as string),
-        new Date(month as string).getMonth(),
-        1
-      );
-      const endDate = new Date(
-        parseInt(year as string),
-        new Date(month as string).getMonth() + 1,
-        0
-      );
+      try {
+        // Parse the date string to get a date object for the first day of the month
+        const localMonthDate = parse(
+          `${month} 1, ${year}`,
+          "MMMM d, yyyy",
+          new Date()
+        );
 
-      dateFilter.date = {
-        [Op.between]: [startDate, endDate],
-      };
+        if (!isValid(localMonthDate)) {
+          res.status(400).json({
+            error: "Invalid date format",
+            received: { year, month },
+          });
+          return;
+        }
+
+        // Convert to UTC to ensure consistent timezone handling
+        const monthDate = toZonedTime(localMonthDate, TIMEZONE);
+
+        const startDate = startOfMonth(monthDate);
+        const endDate = endOfMonth(monthDate);
+
+        dateFilter.date = {
+          [Op.between]: [startDate, endDate],
+        };
+      } catch (error) {
+        res.status(400).json({
+          error: "Invalid date format",
+          received: { year, month },
+          details: error instanceof Error ? error.message : "Unknown error",
+        });
+        return;
+      }
     }
 
     const logs = await HabitLog.findAll({
@@ -57,21 +90,32 @@ export const getHabitLogs = async (
       order: [["date", "DESC"]],
     });
 
-    // Transform logs to match frontend format
-    const transformedLogs = logs.reduce((acc: any, log) => {
-      const date = new Date(log.date);
-      const year = date.getFullYear();
-      const month = date.toLocaleString("default", { month: "long" });
-      const day = date.getDate();
+    // Transform logs to flat structure only
+    const transformedLogs = logs.map((log) => {
+      // Convert the date to a proper UTC date string
+      // This ensures consistent date handling regardless of local timezone
+      const isoDate = formatInTimeZone(
+        new Date(log.date),
+        TIMEZONE,
+        "yyyy-MM-dd"
+      );
 
-      acc[year] = acc[year] || {};
-      acc[year][month] = acc[year][month] || {};
-      acc[year][month][day] = log.count;
+      // In tests, log is often a plain object, so we need to handle both cases
+      const habitName =
+        typeof log.get === "function"
+          ? (log.get("habit") as any)?.name
+          : (log as any).habit?.name;
 
-      return acc;
-    }, {});
+      return {
+        id: log.logId,
+        date: isoDate,
+        count: log.count,
+        habitId: log.habitId,
+        habitName: habitName || null,
+      };
+    });
 
-    res.status(200).json(transformedLogs);
+    res.status(200).json({ logs: transformedLogs });
   } catch (error) {
     console.error("Error fetching habit logs:", error);
     res.status(500).json({ error: "Failed to fetch habit logs" });
@@ -106,101 +150,104 @@ export const logHabit = async (
       return;
     }
 
-    // Convert month name to month index (0-11)
-    const monthIndex = new Date(Date.parse(`${month} 1, 2000`)).getMonth();
-    if (isNaN(monthIndex)) {
-      res.status(400).json({
-        error: "Invalid month name provided",
-        received: { month },
-        validMonths: [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ],
-      });
-      return;
-    }
+    let parsedDate;
+    try {
+      // Parse the date using date-fns
+      const localDate = parse(
+        `${month} ${day}, ${year}`,
+        "MMMM d, yyyy",
+        new Date()
+      );
 
-    // Create date using the month index
-    const date = new Date(year, monthIndex, day);
+      if (!isValid(localDate)) {
+        res.status(400).json({
+          error: "Invalid date values provided",
+          received: { year, month, day },
+        });
+        return;
+      }
 
-    if (isNaN(date.getTime())) {
+      // Convert to UTC to ensure consistent timezone handling
+      parsedDate = toZonedTime(localDate, TIMEZONE);
+
+      // Validate the date is not in the future
+      if (isFuture(parsedDate)) {
+        res.status(400).json({
+          error: "Cannot log habits for future dates",
+          received: { year, month, day },
+          currentDate: formatInTimeZone(new Date(), TIMEZONE, "yyyy-MM-dd"),
+        });
+        return;
+      }
+    } catch (error) {
       res.status(400).json({
-        error: "Invalid date values provided",
+        error: "Invalid date format",
         received: { year, month, day },
-        parsedDate: date,
+        details: error instanceof Error ? error.message : "Unknown error",
       });
       return;
     }
 
-    // Validate the date is not in the future
-    const today = new Date();
-    if (date > today) {
-      res.status(400).json({
-        error: "Cannot log habits for future dates",
-        received: { year, month, day },
-        currentDate: today.toISOString().split("T")[0],
+    try {
+      // Find the habit and verify ownership
+      const habit = await Habit.findOne({
+        where: { habitId, userId },
+        attributes: ["count", "name"],
       });
-      return;
-    }
 
-    // Find the habit and verify ownership
-    const habit = await Habit.findOne({
-      where: { habitId, userId },
-      attributes: ["count", "name"],
-    });
+      if (!habit) {
+        res.status(404).json({
+          error: "Habit not found or unauthorized",
+          habitId,
+          userId,
+        });
+        return;
+      }
 
-    if (!habit) {
-      res.status(404).json({
-        error: "Habit not found or unauthorized",
+      // Get current log count for this date
+      const existingLog = await HabitLog.findOne({
+        where: { habitId, userId, date: parsedDate },
+      });
+
+      const currentCount = existingLog?.count || 0;
+
+      // Check if incrementing would exceed max count
+      if (currentCount >= habit.count) {
+        res.status(400).json({
+          error: `Cannot increment: would exceed habit's maximum count of ${habit.count}`,
+          currentCount,
+          maxCount: habit.count,
+        });
+        return;
+      }
+
+      // Upsert the log with incremented count
+      const [log] = await HabitLog.upsert({
         habitId,
         userId,
+        date: parsedDate,
+        count: currentCount + 1,
       });
-      return;
-    }
 
-    // Get current log count for this date
-    const existingLog = await HabitLog.findOne({
-      where: { habitId, userId, date },
-    });
+      // Return only flat format with consistent timezone handling
+      const isoDate = formatInTimeZone(parsedDate, TIMEZONE, "yyyy-MM-dd");
 
-    const currentCount = existingLog?.count || 0;
-
-    // Check if incrementing would exceed max count
-    if (currentCount >= habit.count) {
-      res.status(400).json({
-        error: `Cannot increment: would exceed habit's maximum count of ${habit.count}`,
-        currentCount,
-        maxCount: habit.count,
-      });
-      return;
-    }
-
-    // Upsert the log with incremented count
-    const [log] = await HabitLog.upsert({
-      habitId,
-      userId,
-      date,
-      count: currentCount + 1,
-    });
-
-    // Return in frontend format
-    res.status(200).json({
-      [year]: {
-        [month]: {
-          [day]: currentCount + 1,
+      res.status(200).json({
+        log: {
+          id: log.logId,
+          date: isoDate,
+          count: currentCount + 1,
+          habitId,
+          habitName: habit.name,
         },
-      },
-    });
+      });
+    } catch (error) {
+      console.error("Error logging habit:", error);
+      res.status(500).json({
+        error: "Failed to log habit",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   } catch (error) {
     console.error("Error logging habit:", error);
     res.status(500).json({
@@ -233,69 +280,77 @@ export const deleteHabitLog = async (
       return;
     }
 
-    // Convert month name to month index (0-11)
-    const monthIndex = new Date(Date.parse(`${month} 1, 2000`)).getMonth();
-    if (isNaN(monthIndex)) {
-      res.status(400).json({
-        error: "Invalid month name provided",
-        received: { month },
-        validMonths: [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ],
-      });
-      return;
-    }
+    let parsedDate;
+    try {
+      // Parse the date using date-fns
+      parsedDate = parse(
+        `${month} ${day}, ${year}`,
+        "MMMM d, yyyy",
+        new Date()
+      );
 
-    // Create date using the month index
-    const date = new Date(year, monthIndex, day);
-
-    if (isNaN(date.getTime())) {
+      if (!isValid(parsedDate)) {
+        res.status(400).json({
+          error: "Invalid date values provided",
+          received: { year, month, day },
+        });
+        return;
+      }
+    } catch (error) {
       res.status(400).json({
-        error: "Invalid date values provided",
+        error: "Invalid date format",
         received: { year, month, day },
-        parsedDate: date,
+        details: error instanceof Error ? error.message : "Unknown error",
       });
       return;
     }
 
-    // Find the log for this date
-    const log = await HabitLog.findOne({
-      where: { habitId, userId, date },
-    });
+    try {
+      // Find the log for this date
+      const log = await HabitLog.findOne({
+        where: { habitId, userId, date: parsedDate },
+      });
 
-    if (!log) {
-      res.status(404).json({ error: "Habit log not found or unauthorized" });
-      return;
+      if (!log) {
+        res.status(404).json({ error: "Habit log not found or unauthorized" });
+        return;
+      }
+
+      let updatedCount = 0;
+      let logDeleted = false;
+
+      if (log.count <= 1) {
+        // If count is 1, delete the log entirely
+        await log.destroy();
+        logDeleted = true;
+      } else {
+        // Otherwise decrement the count
+        log.count -= 1;
+        await log.save();
+        updatedCount = log.count;
+      }
+
+      // Return only flat format
+      const isoDate = format(parsedDate, "yyyy-MM-dd");
+
+      res.status(200).json({
+        log: logDeleted
+          ? null
+          : {
+              id: log.logId,
+              date: isoDate,
+              count: updatedCount,
+              habitId,
+            },
+        deleted: logDeleted,
+      });
+    } catch (error) {
+      console.error("Error updating habit log:", error);
+      res.status(500).json({
+        error: "Failed to update habit log",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
     }
-
-    if (log.count <= 1) {
-      // If count is 1, delete the log entirely
-      await log.destroy();
-    } else {
-      // Otherwise decrement the count
-      log.count -= 1;
-      await log.save();
-    }
-
-    // Return in frontend format
-    res.status(200).json({
-      [year]: {
-        [month]: {
-          [day]: log.count > 1 ? log.count - 1 : 0,
-        },
-      },
-    });
   } catch (error) {
     console.error("Error updating habit log:", error);
     res.status(500).json({
