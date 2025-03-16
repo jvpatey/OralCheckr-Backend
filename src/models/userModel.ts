@@ -1,6 +1,7 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import bcrypt from "bcryptjs";
 import sequelize from "../db/db";
+import { getIntegerType, STRING, BOOLEAN } from "../db/dataTypes";
 
 /* -- User model attributes -- */
 interface UserAttributes {
@@ -35,13 +36,13 @@ class User
 User.init(
   {
     userId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       autoIncrement: true,
       primaryKey: true,
       field: "userId",
     },
     firstName: {
-      type: DataTypes.STRING(255),
+      type: STRING(255),
       allowNull: false,
       field: "firstName",
       validate: {
@@ -50,7 +51,7 @@ User.init(
       },
     },
     lastName: {
-      type: DataTypes.STRING(255),
+      type: STRING(255),
       allowNull: false,
       field: "lastName",
       validate: {
@@ -59,7 +60,7 @@ User.init(
       },
     },
     email: {
-      type: DataTypes.STRING(255),
+      type: STRING(255),
       allowNull: false,
       unique: {
         name: "unique_email",
@@ -74,7 +75,7 @@ User.init(
       },
     },
     password: {
-      type: DataTypes.STRING(255),
+      type: STRING(255),
       allowNull: false,
       field: "password",
       validate: {
@@ -86,7 +87,7 @@ User.init(
       },
     },
     isGuest: {
-      type: DataTypes.BOOLEAN,
+      type: BOOLEAN,
       allowNull: false,
       defaultValue: false,
     },

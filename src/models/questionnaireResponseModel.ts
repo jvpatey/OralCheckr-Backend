@@ -1,6 +1,7 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 import User from "./userModel";
+import { getIntegerType } from "../db/dataTypes";
 
 /* -- Interface for questionnaire response attributes -- */
 interface ResponseAttributes {
@@ -34,12 +35,12 @@ class QuestionnaireResponse
 QuestionnaireResponse.init(
   {
     id: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       autoIncrement: true,
       primaryKey: true,
     },
     userId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       unique: true,
       references: {
@@ -53,12 +54,12 @@ QuestionnaireResponse.init(
       allowNull: false,
     },
     totalScore: {
-      type: DataTypes.INTEGER,
+      type: getIntegerType(),
       allowNull: true,
       defaultValue: 0,
     },
     currentQuestion: {
-      type: DataTypes.INTEGER,
+      type: getIntegerType(),
       allowNull: true,
       defaultValue: 0,
     },
