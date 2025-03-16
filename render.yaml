@@ -2,8 +2,11 @@ services:
   - type: web
     name: oralcheckr-backend
     env: node
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: |
+      npm install
+      npm test
+      npm run build:prod
+    startCommand: node dist/server.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
