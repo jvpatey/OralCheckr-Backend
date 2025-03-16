@@ -1,15 +1,18 @@
 import { Sequelize } from "sequelize";
 import config from "./config";
 
-// Configure SSL options based on environment and dialect
+/* -- Database Connection Module -- */
+
+// SSL is required for PostgreSQL on Render, but not for local MySQL
 const sslConfig =
   process.env.NODE_ENV === "production" && config.DB_DIALECT === "postgres"
     ? {
         require: true,
-        rejectUnauthorized: false,
+        rejectUnauthorized: false, // Required for Render PostgreSQL
       }
     : false;
 
+/* -- Create Sequelize instance -- */
 const sequelize = new Sequelize(
   config.DB_NAME,
   config.DB_USER,
@@ -18,7 +21,7 @@ const sequelize = new Sequelize(
     host: config.DB_HOST,
     dialect: config.DB_DIALECT as any,
     port: parseInt(config.DB_PORT, 10),
-    logging: false,
+    logging: false, // Set to console.log to see SQL queries
     pool: {
       max: 5,
       min: 0,
@@ -31,7 +34,8 @@ const sequelize = new Sequelize(
   }
 );
 
-// Test connection function - but don't call it automatically
+/* -- Test database connection -- */
+
 export const connectDB = async () => {
   try {
     await sequelize.authenticate();

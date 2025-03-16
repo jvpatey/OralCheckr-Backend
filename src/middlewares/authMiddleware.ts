@@ -17,8 +17,19 @@ export const verifyToken = (
 ): void => {
   const token =
     req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
-
-  console.log("Token received:", token);
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+        userId: number;
+        role?: string;
+      };
+      console.log(`Auth: User ${decoded.userId} accessing ${req.originalUrl}`);
+    } catch (err) {
+      console.log(`Auth: Invalid token for ${req.originalUrl}`);
+    }
+  } else {
+    console.log(`Auth: No token provided for ${req.originalUrl}`);
+  }
 
   if (!token) {
     res.status(401).json({ error: "Unauthorized: No token provided" });

@@ -9,52 +9,66 @@ import questionnaireRoutes from "./routes/questionnaireRoutes";
 import habitRoutes from "./routes/habitRoutes";
 import habitLogRoutes from "./routes/habitLogRoutes";
 
+/* -- OralCheckr Backend Server -- */
+
+// Load environment variables from .env file
 dotenv.config();
 
+// Server configuration
 const port = process.env.PORT || 3000;
 const app = express();
 
-// Get frontend URL from environment variable with fallback
+// CORS configuration for frontend access
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
 console.log(`Allowing CORS for: ${frontendUrl}`);
 
-/* -- Middleware -- */
+/* -- Middleware Configuration -- */
+// Enable CORS with credentials for the frontend
 app.use(cors({ origin: frontendUrl, credentials: true }));
+
+// Parse JSON request bodies
 app.use(express.json());
+
+// Parse URL-encoded request bodies (form submissions)
 app.use(express.urlencoded({ extended: false }));
+
+// Parse cookies from request headers
 app.use(cookieParser());
 
-/* -- Routes -- */
-// Health check endpoint for Render
+/* -- API Routes -- */
+// Health check endpoint for monitoring and Render's health checks
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", environment: process.env.NODE_ENV });
 });
 
-app.use("/auth", authRoutes); // Auth routes
-app.use("/questionnaire", questionnaireRoutes); // Questionnaire routes
-app.use("/habits", habitRoutes); // Habit routes
-app.use("/habit-logs", habitLogRoutes); // Habit log routes
+// Mount route modules
+app.use("/auth", authRoutes); // Authentication & user management
+app.use("/questionnaire", questionnaireRoutes); // Questionnaire responses
+app.use("/habits", habitRoutes); // Habit management
+app.use("/habit-logs", habitLogRoutes); // Habit logging and tracking
 
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
-/* -- Start server function -- */
+/* -- Server Startup Function -- */
+
 const startServer = async () => {
   try {
-    // Only sync models if not in test mode
+    // Only connect to database if not in test mode
     if (process.env.NODE_ENV !== "test") {
-      // First connect to the database
+      // First establish database connection
       const connected = await connectDB();
       if (!connected) {
         console.error("Could not connect to database. Server will not start.");
         return;
       }
 
-      // Then sync models
+      // Then synchronize models with the database
+      // The 'alter: true' option updates tables to match models
       await sequelize.sync({ alter: true });
       console.log("All models synchronized successfully.");
     }
 
-    // Start the server
+    // Start the Express server
     app.listen(port, () => {
       console.log(`Server running on port: ${port}`);
     });
@@ -63,9 +77,12 @@ const startServer = async () => {
   }
 };
 
-// Only start the server if not in test mode and not being imported (for tests)
+// Only start if:
+// 1. Not in test mode (prevents test runs from starting the server)
+// 2. This file is being run directly (not imported by another file)
 if (process.env.NODE_ENV !== "test" && require.main === module) {
   startServer();
 }
 
+// Export the Express app for testing
 export default app;
