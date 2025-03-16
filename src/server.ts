@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import sequelize from "./db/db";
+import { connectDB } from "./db/db";
 import authRoutes from "./routes/authRoutes";
 import questionnaireRoutes from "./routes/questionnaireRoutes";
 import habitRoutes from "./routes/habitRoutes";
@@ -36,20 +37,35 @@ app.use("/habit-logs", habitLogRoutes); // Habit log routes
 
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
-/* -- Sync models and start server only if not in test mode -- */
-if (process.env.NODE_ENV !== "test") {
-  sequelize
-    .sync({ alter: true })
-    .then(() => {
+/* -- Start server function -- */
+const startServer = async () => {
+  try {
+    // Only sync models if not in test mode
+    if (process.env.NODE_ENV !== "test") {
+      // First connect to the database
+      const connected = await connectDB();
+      if (!connected) {
+        console.error("Could not connect to database. Server will not start.");
+        return;
+      }
+
+      // Then sync models
+      await sequelize.sync({ alter: true });
       console.log("All models synchronized successfully.");
-      app.listen(port, () => {
-        console.log(`Server running on port: ${port}`);
-      });
-    })
-    .catch((error) => {
-      console.error("Failed to synchronize models:", error);
-      process.exit(1);
+    }
+
+    // Start the server
+    app.listen(port, () => {
+      console.log(`Server running on port: ${port}`);
     });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+  }
+};
+
+// Only start the server if not in test mode and not being imported (for tests)
+if (process.env.NODE_ENV !== "test" && require.main === module) {
+  startServer();
 }
 
 export default app;

@@ -31,17 +31,16 @@ const sequelize = new Sequelize(
   }
 );
 
-// Test connection on startup
-const connectDB = async () => {
+// Test connection function - but don't call it automatically
+export const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log(`Connected to ${config.DB_DIALECT} database via Sequelize`);
+    return true;
   } catch (error) {
     console.error("Unable to connect to the database:", error);
-    process.exit(1);
+    return false;
   }
 };
-
-connectDB();
 
 export default sequelize;
