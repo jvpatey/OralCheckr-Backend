@@ -13,13 +13,22 @@ dotenv.config();
 const port = process.env.PORT || 3000;
 const app = express();
 
+// Get frontend URL from environment variable with fallback
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+console.log(`Allowing CORS for: ${frontendUrl}`);
+
 /* -- Middleware -- */
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: frontendUrl, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 /* -- Routes -- */
+// Health check endpoint for Render
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", environment: process.env.NODE_ENV });
+});
+
 app.use("/auth", authRoutes); // Auth routes
 app.use("/questionnaire", questionnaireRoutes); // Questionnaire routes
 app.use("/habits", habitRoutes); // Habit routes
