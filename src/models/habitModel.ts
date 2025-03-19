@@ -1,5 +1,6 @@
-import { DataTypes, Model, Optional } from "sequelize";
+import { Model, Optional } from "sequelize";
 import sequelize from "../db/db";
+import { getIntegerType, STRING } from "../db/dataTypes";
 
 /* -- Habit model attributes -- */
 interface HabitAttributes {
@@ -32,13 +33,13 @@ class Habit
 Habit.init(
   {
     habitId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       autoIncrement: true,
       primaryKey: true,
       field: "habitId",
     },
     name: {
-      type: DataTypes.STRING(255),
+      type: STRING(255),
       allowNull: false,
       field: "name",
       validate: {
@@ -46,7 +47,7 @@ Habit.init(
       },
     },
     count: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       field: "count",
       validate: {
@@ -54,7 +55,7 @@ Habit.init(
       },
     },
     userId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       field: "userId",
       references: {

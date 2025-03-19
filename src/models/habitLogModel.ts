@@ -1,6 +1,7 @@
 import { DataTypes, Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 import Habit from "./habitModel";
+import { getIntegerType, DATE } from "../db/dataTypes";
 
 interface HabitLogAttributes {
   logId: number;
@@ -34,13 +35,13 @@ class HabitLog
 HabitLog.init(
   {
     logId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       autoIncrement: true,
       primaryKey: true,
       field: "logId",
     },
     habitId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       field: "habitId",
       references: {
@@ -49,7 +50,7 @@ HabitLog.init(
       },
     },
     userId: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       field: "userId",
       references: {
@@ -63,7 +64,7 @@ HabitLog.init(
       field: "date",
     },
     count: {
-      type: DataTypes.INTEGER.UNSIGNED,
+      type: getIntegerType(true),
       allowNull: false,
       defaultValue: 0,
       field: "count",
