@@ -18,6 +18,7 @@ export const saveResponse = async (
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire responses save failed: No token provided");
       return;
     }
 
@@ -33,6 +34,9 @@ export const saveResponse = async (
 
     if (!responses || totalScore === undefined) {
       res.status(400).json({ error: "Missing required fields" });
+      console.log(
+        "Questionnaire responses save failed: Missing required fields"
+      );
       return;
     }
 
@@ -40,6 +44,7 @@ export const saveResponse = async (
     const user = await User.findByPk(userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
+      console.log("Questionnaire responses save failed: User not found");
       return;
     }
 
@@ -59,6 +64,9 @@ export const saveResponse = async (
         message: "Questionnaire response updated",
         response: existingResponse,
       });
+      console.log(
+        `Updated existing questionnaire response: ${existingResponse.id} for user: ${userId}`
+      );
     } else {
       // Create new response and set currentQuestion to 1
       const newResponse = await QuestionnaireResponse.create({
@@ -71,6 +79,9 @@ export const saveResponse = async (
         message: "Questionnaire response saved",
         response: newResponse,
       });
+      console.log(
+        `Created new questionnaire response: ${newResponse.id} for user: ${userId} and set current question to 1`
+      );
     }
   } catch (error) {
     console.error("Error saving response:", error);
@@ -88,6 +99,7 @@ export const getResponseByUser = async (
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire responses get failed: No token provided");
       return;
     }
 
@@ -102,14 +114,23 @@ export const getResponseByUser = async (
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
     });
+
     if (!responseRecord) {
       res.status(404).json({ error: "No response found for this user" });
+      console.log(
+        `Questionnaire responses get failed: No response found for user: ${userId}`
+      );
       return;
     }
 
     res.status(200).json(responseRecord);
+    console.log(
+      `Questionnaire responses get successful: Fetched response for user: ${userId}`
+    );
   } catch (error) {
-    console.error("Error fetching user response:", error);
+    console.error(
+      `Questionnaire responses get failed: Error fetching user response: ${error}`
+    );
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -123,6 +144,7 @@ export const updateProgress = async (
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire progress update failed: No token provided");
       return;
     }
     const decoded = jwt.verify(
@@ -130,13 +152,19 @@ export const updateProgress = async (
       process.env.JWT_SECRET as string
     ) as DecodedToken;
     const userId = decoded.userId;
-
     const { responses, currentQuestion } = req.body;
 
     if (responses === undefined || currentQuestion === undefined) {
       res.status(400).json({ error: "Missing required fields" });
+      console.log(
+        "Questionnaire progress update failed: Missing required fields"
+      );
       return;
     }
+
+    console.log(
+      `Questionnaire progress update: Processing update for user: ${userId} and current question: ${currentQuestion}`
+    );
 
     // Find existing progress record for the user
     const existingResponse = await QuestionnaireResponse.findOne({
@@ -150,6 +178,9 @@ export const updateProgress = async (
         message: "Questionnaire progress updated",
         progress: { responses, currentQuestion },
       });
+      console.log(
+        `Questionnaire progress update successful: Updated existing response: ${existingResponse.id} for user: ${userId}`
+      );
     } else {
       // Create a new record if none exists yet.
       const newResponse = await QuestionnaireResponse.create({
@@ -160,7 +191,11 @@ export const updateProgress = async (
       res.status(201).json({
         message: "Questionnaire progress saved",
         progress: { responses, currentQuestion },
+        response: newResponse,
       });
+      console.log(
+        `Questionnaire progress update successful: Created new response: ${newResponse.id} for user: ${userId}`
+      );
     }
   } catch (error) {
     console.error("Error updating progress:", error);
@@ -177,6 +212,7 @@ export const getProgress = async (
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire progress get failed: No token provided");
       return;
     }
     const decoded = jwt.verify(
@@ -191,6 +227,9 @@ export const getProgress = async (
     });
     if (!responseRecord) {
       res.status(404).json({ error: "No progress found for this user" });
+      console.log(
+        `Questionnaire progress get failed: No progress found for user: ${userId}`
+      );
       return;
     }
 
@@ -198,8 +237,13 @@ export const getProgress = async (
       responses: responseRecord.responses,
       currentQuestion: responseRecord.currentQuestion,
     });
+    console.log(
+      `Questionnaire progress get successful: Fetched progress for user: ${userId}`
+    );
   } catch (error) {
-    console.error("Error fetching progress:", error);
+    console.error(
+      `Questionnaire progress get failed: Error fetching progress: ${error}`
+    );
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -213,6 +257,7 @@ export const saveGuestQuestionnaireResponse = async (
     // Check that the user is authenticated and has a guest role
     if (!req.user || req.user.role !== "guest") {
       res.status(401).json({ error: "Unauthorized" });
+      console.log("Questionnaire responses save failed: User is not a guest");
       return;
     }
 
@@ -225,7 +270,9 @@ export const saveGuestQuestionnaireResponse = async (
       responses,
       totalScore,
     });
-
+    console.log(
+      `Questionnaire responses save successful: Guest responses saved for user: ${guestUserId}`
+    );
     res.status(200).json({ message: "Guest responses saved" });
   } catch (error) {
     console.error("Error saving guest questionnaire response:", error);
