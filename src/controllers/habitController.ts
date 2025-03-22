@@ -73,7 +73,7 @@ export const createHabit = async (
       userId,
     });
     console.log(
-      `Habit created successfully: ${habit.name} for user: ${userId}`
+      `User: ${userId} created habit successfully: Name: ${habit.name}, Count: ${habit.count}`
     );
 
     res.status(201).json(habit);
@@ -139,7 +139,7 @@ export const updateHabit = async (
 
     res.status(200).json(habit);
     console.log(
-      `Habit updated successfully: ${habit.name} for user: ${userId}`
+      `User: ${userId} updated habit successfully: Name: ${habit.name}, Count: ${habit.count}`
     );
   } catch (error) {
     console.error("Error updating habit:", error);
@@ -179,7 +179,9 @@ export const deleteHabit = async (
 
     // Then delete the habit
     await habit.destroy();
-    console.log(`Habit deletion successful: ${habit.name} for user: ${userId}`);
+    console.log(
+      `User: ${userId} deleted habit successfully: Habit:${habit.name}`
+    );
 
     res
       .status(200)
