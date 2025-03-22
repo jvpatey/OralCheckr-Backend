@@ -34,6 +34,7 @@ const validatePassword = (password: string): string | null => {
 
 /* -- Guest User Creation -- */
 const createGuestUser = async (): Promise<User> => {
+  console.log("Creating guest user...");
   const guestEmail = `guest_${Date.now()}_${Math.floor(
     Math.random() * 10000
   )}@guest.com`;
@@ -42,28 +43,35 @@ const createGuestUser = async (): Promise<User> => {
   // Hash the guest password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(guestPassword, salt);
-  // Create and return the new guest user
-  return await User.create({
+  // Create the new guest user
+  const guestUser = await User.create({
     firstName: "Guest",
     lastName: "User",
     email: guestEmail,
     password: hashedPassword,
     isGuest: true,
   });
+  console.log(`Guest user created: ${guestUser.email}`);
+  return guestUser;
 };
 
 /* -- Register a user -- */
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password, firstName, lastName } = req.body;
 
+  console.log(`Registering user: ${email}`);
   if (!email || !password || !firstName || !lastName) {
     res.status(400).json({ error: "All fields are required!" });
+    console.log("Registration failed: Missing required fields");
     return;
   }
 
   const passwordError = validatePassword(password);
   if (passwordError) {
     res.status(400).json({ error: passwordError });
+    console.log(
+      `Registration failed: Password validation failed - ${passwordError}`
+    );
     return;
   }
 
@@ -71,6 +79,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       res.status(409).json({ error: "Email already exists" });
+      console.log(`Registration failed: Email ${email} already exists`);
       return;
     }
 
@@ -97,8 +106,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res
       .status(201)
       .json({ message: "User created successfully", userId: newUser.userId });
+    console.log(
+      `Registration successful: User ${newUser.email} created with ID ${newUser.userId}`
+    );
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error(`Registration error for ${email}:`, error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -108,6 +120,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
   if (!email || !password) {
+    console.log("Login failed: Missing email or password");
     res.status(400).json({ error: "Email or Password cannot be empty!" });
     return;
   }
@@ -115,12 +128,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
+      console.log(`Login failed: User ${email} not found`);
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
+      console.log(`Login failed: Invalid password for user ${email}`);
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
@@ -136,8 +151,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     res.status(200).json({ message: "Login successful", userId: user.userId });
+    console.log(
+      `Login successful: User ${user.email} logged in with ID ${user.userId}`
+    );
   } catch (error) {
-    console.error("Login error:", error);
+    console.error(`Login error for ${email}:`, error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -174,6 +192,9 @@ export const guestLogin = async (
       userId: guestUser.userId,
       role: "guest",
     });
+    console.log(
+      `Guest login successful: Guest user ${guestUser.email} created with ID ${guestUser.userId}`
+    );
   } catch (error) {
     console.error("Guest login error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -190,6 +211,7 @@ export const logout = (req: Request, res: Response): void => {
     });
 
     res.status(200).json({ message: "Logged out successfully" });
+    console.log("Logout successful");
   } catch (error) {
     console.error("Logout error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -203,9 +225,15 @@ export const validateUser = (
 ): void => {
   if (!req.user) {
     res.status(401).json({ error: "Unauthorized: No user found" });
+    console.log("User validation failed: No user found");
     return;
   }
   res.status(200).json({ user: req.user });
+  console.log(
+    `User validation successful: User ID ${req.user.userId}${
+      req.user.email ? ` (${req.user.email})` : ""
+    }`
+  );
 };
 
 /* -- Converting guest user to registered user on sign up -- */
@@ -217,12 +245,14 @@ export const convertGuestToUser = async (
     // Ensure the current session is from a guest user.
     if (!req.user || req.user.role !== "guest") {
       res.status(400).json({ error: "No guest session found" });
+      console.log("Guest conversion failed: No guest session found");
       return;
     }
 
     const { email, password, firstName, lastName } = req.body;
     if (!email || !password || !firstName || !lastName) {
       res.status(400).json({ error: "All fields are required!" });
+      console.log("Guest conversion failed: Missing required fields");
       return;
     }
 
@@ -230,6 +260,7 @@ export const convertGuestToUser = async (
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       res.status(409).json({ error: "Email already exists" });
+      console.log(`Guest conversion failed: Email ${email} already exists`);
       return;
     }
 
@@ -248,12 +279,17 @@ export const convertGuestToUser = async (
       password: hashedPassword,
       isGuest: false,
     });
+    console.log(
+      `Guest conversion successful: Created new user ${newUser.email} with ID ${newUser.userId}`
+    );
 
     // Merge questionnaire responses:
-    // Update all responses that belong to the guest user to use the new user's ID.
     await QuestionnaireResponse.update(
       { userId: newUser.userId },
       { where: { userId: guestUserId } }
+    );
+    console.log(
+      `Migrated questionnaire responses from guest user ${guestUserId} to new user ${newUser.userId}`
     );
 
     // Migrate habits - update the userId
@@ -261,23 +297,32 @@ export const convertGuestToUser = async (
       { userId: newUser.userId },
       { where: { userId: guestUserId } }
     );
+    console.log(
+      `Migrated habits from guest user ${guestUserId} to new user ${newUser.userId}`
+    );
 
     // Migrate habit logs - update the userId
     await HabitLog.update(
       { userId: newUser.userId },
       { where: { userId: guestUserId } }
     );
+    console.log(
+      `Migrated habit logs from guest user ${guestUserId} to new user ${newUser.userId}`
+    );
 
     // Count how many habits were migrated
     const habitCount = await Habit.count({ where: { userId: newUser.userId } });
+    console.log(`Migrated ${habitCount} habits`);
 
     // Count how many habit logs were migrated
     const logCount = await HabitLog.count({
       where: { userId: newUser.userId },
     });
+    console.log(`Migrated ${logCount} habit logs`);
 
     // Delete the guest user record as it's no longer needed.
     await User.destroy({ where: { userId: guestUserId } });
+    console.log(`Deleted guest user ${guestUserId}`);
 
     // Generate a new access token for the new user.
     const newAccessToken = jwt.sign(
@@ -285,6 +330,7 @@ export const convertGuestToUser = async (
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" }
     );
+    console.log(`Generated new access token for user ${newUser.userId}`);
 
     // Set the new token in an HTTP-only cookie.
     res.cookie("accessToken", newAccessToken, {
@@ -306,6 +352,9 @@ export const convertGuestToUser = async (
       habitsMigrated: habitCount,
       logsMigrated: logCount,
     });
+    console.log(
+      `Guest conversion completed: User ${newUser.email} (ID: ${newUser.userId}) with ${habitCount} habits and ${logCount} logs`
+    );
   } catch (error) {
     console.error("Error converting guest to user:", error);
     res.status(500).json({ error: "Failed to convert guest account" });
