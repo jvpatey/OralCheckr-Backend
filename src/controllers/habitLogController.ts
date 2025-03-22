@@ -246,9 +246,9 @@ export const logHabit = async (
       });
 
       console.log(
-        `Habit log created successfully for user: ${userId}, habit: ${
+        `Habit log incremented successfully for user: ${userId}, habit: ${
           habit.name
-        }, count: ${currentCount + 1}`
+        }, count increased from ${currentCount} to ${currentCount + 1}`
       );
 
       // Return only flat format with consistent timezone handling
