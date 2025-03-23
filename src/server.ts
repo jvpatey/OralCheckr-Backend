@@ -64,15 +64,23 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const originalCookie = res.cookie;
   res.cookie = function (name: string, value: any, options: any = {}) {
-    const secureOptions = {
-      sameSite: "none" as const,
-      secure: true,
+    // Base options that should be applied in all environments
+    const baseOptions = {
       httpOnly: true,
       path: "/",
-      domain:
-        process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
     };
-    return originalCookie(name, value, { ...options, ...secureOptions });
+
+    // Additional options for production/development
+    if (process.env.NODE_ENV !== "test") {
+      Object.assign(baseOptions, {
+        sameSite: "none" as const,
+        secure: true,
+        domain:
+          process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
+      });
+    }
+
+    return originalCookie(name, value, { ...options, ...baseOptions });
   };
   next();
 });
