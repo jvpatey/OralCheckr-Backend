@@ -27,9 +27,7 @@ const corsOptions = {
   exposedHeaders: ["set-cookie"],
 };
 
-console.log(
-  `CORS configured to allow all origins in ${process.env.NODE_ENV} environment`
-);
+console.log(`CORS configured for ${process.env.NODE_ENV} environment`);
 
 /* -- Middleware Configuration -- */
 // Parse cookies from request headers
@@ -57,31 +55,6 @@ app.use((req, res, next) => {
       },
     });
   }
-  next();
-});
-
-// Add cookie security middleware
-app.use((req, res, next) => {
-  const originalCookie = res.cookie;
-  res.cookie = function (name: string, value: any, options: any = {}) {
-    // Base options that should be applied in all environments
-    const baseOptions = {
-      httpOnly: true,
-      path: "/",
-    };
-
-    // Additional options for production/development
-    if (process.env.NODE_ENV !== "test") {
-      Object.assign(baseOptions, {
-        sameSite: "none" as const,
-        secure: true,
-        domain:
-          process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
-      });
-    }
-
-    return originalCookie(name, value, { ...options, ...baseOptions });
-  };
   next();
 });
 

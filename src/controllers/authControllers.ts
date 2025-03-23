@@ -55,6 +55,34 @@ const createGuestUser = async (): Promise<User> => {
   return guestUser;
 };
 
+// Cookie configuration based on environment
+const getCookieConfig = (maxAge?: number) => {
+  const isProduction = process.env.NODE_ENV === "production";
+  const isTest = process.env.NODE_ENV === "test";
+
+  const config: any = {
+    httpOnly: true,
+    secure: isProduction,
+    path: "/",
+  };
+
+  // In test environment, keep it simple
+  if (isTest) {
+    if (maxAge) config.maxAge = maxAge;
+    return config;
+  }
+
+  // In production/development
+  config.sameSite = isProduction ? "none" : "lax";
+  config.secure = true;
+  if (isProduction) {
+    config.domain = ".onrender.com";
+  }
+  if (maxAge) config.maxAge = maxAge;
+
+  return config;
+};
+
 /* -- Register a user -- */
 export const register = async (req: Request, res: Response): Promise<void> => {
   const { email, password, firstName, lastName } = req.body;
@@ -96,12 +124,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const accessToken = generateAccessToken(newUser.userId);
 
     // Store token in an HTTP-only cookie
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie(
+      "accessToken",
+      accessToken,
+      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+    ); // 7 days
 
     res
       .status(201)
@@ -143,12 +170,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const accessToken = generateAccessToken(user.userId);
 
     // Store token in an HTTP-only cookie
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie(
+      "accessToken",
+      accessToken,
+      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+    ); // 7 days
 
     res.status(200).json({ message: "Login successful", userId: user.userId });
     console.log(
@@ -180,12 +206,11 @@ export const guestLogin = async (
     const accessToken = generateGuestAccessToken(guestUser.userId);
 
     // Store token in an HTTP-only cookie
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    });
+    res.cookie(
+      "accessToken",
+      accessToken,
+      getCookieConfig(24 * 60 * 60 * 1000)
+    ); // 1 day
 
     res.status(200).json({
       message: "Guest login successful",
@@ -204,11 +229,7 @@ export const guestLogin = async (
 /* -- Log out -- */
 export const logout = (req: Request, res: Response): void => {
   try {
-    res.clearCookie("accessToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
+    res.clearCookie("accessToken", getCookieConfig());
 
     res.status(200).json({ message: "Logged out successfully" });
     console.log("Logout successful");
@@ -333,11 +354,11 @@ export const convertGuestToUser = async (
     console.log(`Generated new access token for user ${newUser.userId}`);
 
     // Set the new token in an HTTP-only cookie.
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie(
+      "accessToken",
+      newAccessToken,
+      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+    ); // 7 days
 
     // Return the new user details (excluding the password).
     res.status(200).json({
