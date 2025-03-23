@@ -20,18 +20,32 @@ const app = express();
 
 // CORS configuration for frontend access
 const corsOptions = {
-  origin:
-    process.env.NODE_ENV === "production"
-      ? ["https://jvpatey.github.io", "https://jvpatey.github.io/OralCheckr"]
-      : "http://localhost:5173",
+  origin: true, // Allow all origins
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
 };
 
-console.log(`CORS configured for ${process.env.NODE_ENV} environment`);
+console.log(
+  `CORS configured to allow all origins in ${process.env.NODE_ENV} environment`
+);
 
 /* -- Middleware Configuration -- */
 // Enable CORS with credentials for the frontend
 app.use(cors(corsOptions));
+
+// Debug logging for auth requests
+app.use((req, res, next) => {
+  if (req.path.startsWith("/auth")) {
+    console.log("Auth request:", {
+      path: req.path,
+      method: req.method,
+      cookies: req.cookies,
+      headers: req.headers,
+    });
+  }
+  next();
+});
 
 // Parse JSON request bodies
 app.use(express.json());
