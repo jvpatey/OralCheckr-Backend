@@ -19,15 +19,30 @@ const port = process.env.PORT || 3000;
 const app = express();
 
 // CORS configuration for frontend access
+const allowedOrigins = ["http://localhost:5173", "https://jvpatey.github.io"];
+
 const corsOptions = {
-  origin: true, // Allow all origins
+  origin: function (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
   exposedHeaders: ["set-cookie"],
 };
 
-console.log(`CORS configured for ${process.env.NODE_ENV} environment`);
+console.log(
+  `CORS configured for ${
+    process.env.NODE_ENV
+  } environment with allowed origins: ${allowedOrigins.join(", ")}`
+);
 
 /* -- Middleware Configuration -- */
 // Parse cookies from request headers

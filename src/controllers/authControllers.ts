@@ -60,25 +60,24 @@ const getCookieConfig = (maxAge?: number) => {
   const isProduction = process.env.NODE_ENV === "production";
   const isTest = process.env.NODE_ENV === "test";
 
+  // Base configuration
   const config: any = {
     httpOnly: true,
-    secure: isProduction,
+    secure: true,
     path: "/",
+    sameSite: "none" as const,
   };
 
-  // In test environment, keep it simple
+  // Test environment configuration
   if (isTest) {
-    if (maxAge) config.maxAge = maxAge;
-    return config;
+    config.secure = false;
+    config.sameSite = "lax";
   }
 
-  // In production/development
-  config.sameSite = isProduction ? "none" : "lax";
-  config.secure = true;
-  if (isProduction) {
-    config.domain = ".onrender.com";
+  // Add maxAge if provided
+  if (maxAge) {
+    config.maxAge = maxAge;
   }
-  if (maxAge) config.maxAge = maxAge;
 
   return config;
 };
