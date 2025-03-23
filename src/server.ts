@@ -19,12 +19,19 @@ const port = process.env.PORT || 3000;
 const app = express();
 
 // CORS configuration for frontend access
-const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-console.log(`Allowing CORS for: ${frontendUrl}`);
+const corsOptions = {
+  origin:
+    process.env.NODE_ENV === "production"
+      ? ["https://jvpatey.github.io", "https://jvpatey.github.io/OralCheckr"]
+      : "http://localhost:5173",
+  credentials: true,
+};
+
+console.log(`CORS configured for ${process.env.NODE_ENV} environment`);
 
 /* -- Middleware Configuration -- */
 // Enable CORS with credentials for the frontend
-app.use(cors({ origin: frontendUrl, credentials: true }));
+app.use(cors(corsOptions));
 
 // Parse JSON request bodies
 app.use(express.json());
