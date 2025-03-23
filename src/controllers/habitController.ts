@@ -13,6 +13,7 @@ export const getHabits = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habits fetch failed: User not authenticated");
       return;
     }
 
@@ -21,6 +22,9 @@ export const getHabits = async (
       order: [["createdAt", "ASC"]],
     });
 
+    console.log(
+      `Habits fetched successfully for user: ${userId}. Total habits: ${habits.length}`
+    );
     res.status(200).json(habits);
   } catch (error) {
     console.error("Error fetching habits:", error);
@@ -38,6 +42,7 @@ export const createHabit = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit creation failed: User not authenticated");
       return;
     }
 
@@ -47,6 +52,7 @@ export const createHabit = async (
       res.status(400).json({
         error: "Name and count are required. Count must be a positive number.",
       });
+      console.log("Habit creation failed: Missing required fields");
       return;
     }
 
@@ -57,6 +63,7 @@ export const createHabit = async (
 
     if (existingHabit) {
       res.status(400).json({ error: "A habit with this name already exists" });
+      console.log("Habit creation failed: Habit with same name already exists");
       return;
     }
 
@@ -65,6 +72,9 @@ export const createHabit = async (
       count,
       userId,
     });
+    console.log(
+      `User: ${userId} created habit successfully: Name: ${habit.name}, Count: ${habit.count}`
+    );
 
     res.status(201).json(habit);
   } catch (error) {
@@ -84,6 +94,7 @@ export const updateHabit = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit update failed: User not authenticated");
       return;
     }
 
@@ -93,6 +104,7 @@ export const updateHabit = async (
       res.status(400).json({
         error: "Name and count are required. Count must be a positive number.",
       });
+      console.log("Habit update failed: Missing required fields");
       return;
     }
 
@@ -103,6 +115,7 @@ export const updateHabit = async (
 
     if (!habit) {
       res.status(404).json({ error: "Habit not found" });
+      console.log("Habit update failed: Habit not found");
       return;
     }
 
@@ -116,6 +129,7 @@ export const updateHabit = async (
         res
           .status(400)
           .json({ error: "A habit with this name already exists" });
+        console.log("Habit update failed: Habit with same name already exists");
         return;
       }
     }
@@ -124,6 +138,9 @@ export const updateHabit = async (
     await habit.update({ name, count });
 
     res.status(200).json(habit);
+    console.log(
+      `User: ${userId} updated habit successfully: Name: ${habit.name}, Count: ${habit.count}`
+    );
   } catch (error) {
     console.error("Error updating habit:", error);
     res.status(500).json({ error: "Failed to update habit" });
@@ -141,6 +158,7 @@ export const deleteHabit = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit deletion failed: User not authenticated");
       return;
     }
 
@@ -150,6 +168,7 @@ export const deleteHabit = async (
 
     if (!habit) {
       res.status(404).json({ error: "Habit not found" });
+      console.log("Habit deletion failed: Habit not found");
       return;
     }
 
@@ -160,12 +179,15 @@ export const deleteHabit = async (
 
     // Then delete the habit
     await habit.destroy();
+    console.log(
+      `User: ${userId} deleted habit successfully: Habit:${habit.name}`
+    );
 
     res
       .status(200)
       .json({ message: "Habit and associated logs deleted successfully" });
   } catch (error) {
-    console.error("Error deleting habit:", error);
+    console.error("Habit deletion failed:", error);
     res.status(500).json({ error: "Failed to delete habit" });
   }
 };
@@ -180,6 +202,7 @@ export const deleteAllHabits = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("All habits deletion failed: User not authenticated");
       return;
     }
 
@@ -192,6 +215,7 @@ export const deleteAllHabits = async (
     await Habit.destroy({
       where: { userId },
     });
+    console.log(`All habits deleted successfully for user: ${userId}`);
 
     res
       .status(200)

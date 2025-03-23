@@ -10,9 +10,6 @@ import {
   startOfMonth,
   endOfMonth,
   format,
-  getYear,
-  getDate,
-  parseISO,
 } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
@@ -30,6 +27,7 @@ export const getHabitLogs = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit logs fetch failed: User not authenticated");
       return;
     }
 
@@ -51,6 +49,7 @@ export const getHabitLogs = async (
             error: "Invalid date format",
             received: { year, month },
           });
+          console.log("Habit logs fetch failed: Invalid date format");
           return;
         }
 
@@ -69,6 +68,7 @@ export const getHabitLogs = async (
           received: { year, month },
           details: error instanceof Error ? error.message : "Unknown error",
         });
+        console.log("Habit logs fetch failed: Date parsing error");
         return;
       }
     }
@@ -89,6 +89,10 @@ export const getHabitLogs = async (
       ],
       order: [["date", "DESC"]],
     });
+
+    console.log(
+      `Habit logs fetched successfully for user: ${userId}, habit: ${habitId}. Total logs: ${logs.length}`
+    );
 
     // Transform logs to flat structure only
     const transformedLogs = logs.map((log) => {
@@ -134,11 +138,13 @@ export const logHabit = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit log creation failed: User not authenticated");
       return;
     }
 
     if (!habitId || isNaN(habitId)) {
       res.status(400).json({ error: "Invalid habit ID" });
+      console.log("Habit log creation failed: Invalid habit ID");
       return;
     }
 
@@ -147,6 +153,7 @@ export const logHabit = async (
         error: "Year, month, and day are required",
         received: { year, month, day },
       });
+      console.log("Habit log creation failed: Missing required date fields");
       return;
     }
 
@@ -164,6 +171,7 @@ export const logHabit = async (
           error: "Invalid date values provided",
           received: { year, month, day },
         });
+        console.log("Habit log creation failed: Invalid date values");
         return;
       }
 
@@ -177,6 +185,7 @@ export const logHabit = async (
           received: { year, month, day },
           currentDate: formatInTimeZone(new Date(), TIMEZONE, "yyyy-MM-dd"),
         });
+        console.log("Habit log creation failed: Future date provided");
         return;
       }
     } catch (error) {
@@ -185,6 +194,7 @@ export const logHabit = async (
         received: { year, month, day },
         details: error instanceof Error ? error.message : "Unknown error",
       });
+      console.log("Habit log creation failed: Date parsing error");
       return;
     }
 
@@ -201,6 +211,9 @@ export const logHabit = async (
           habitId,
           userId,
         });
+        console.log(
+          "Habit log creation failed: Habit not found or unauthorized"
+        );
         return;
       }
 
@@ -218,6 +231,9 @@ export const logHabit = async (
           currentCount,
           maxCount: habit.count,
         });
+        console.log(
+          `Habit log creation failed: Would exceed max count of ${habit.count}`
+        );
         return;
       }
 
@@ -228,6 +244,12 @@ export const logHabit = async (
         date: parsedDate,
         count: currentCount + 1,
       });
+
+      console.log(
+        `Habit log incremented successfully for user: ${userId}, habit: ${
+          habit.name
+        }, count increased from ${currentCount} to ${currentCount + 1}`
+      );
 
       // Return only flat format with consistent timezone handling
       const isoDate = formatInTimeZone(parsedDate, TIMEZONE, "yyyy-MM-dd");
@@ -269,6 +291,7 @@ export const deleteHabitLog = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
+      console.log("Habit log deletion failed: User not authenticated");
       return;
     }
 
@@ -277,6 +300,7 @@ export const deleteHabitLog = async (
         error: "Year, month, and day are required",
         received: { year, month, day },
       });
+      console.log("Habit log deletion failed: Missing required date fields");
       return;
     }
 
@@ -294,6 +318,7 @@ export const deleteHabitLog = async (
           error: "Invalid date values provided",
           received: { year, month, day },
         });
+        console.log("Habit log deletion failed: Invalid date values");
         return;
       }
     } catch (error) {
@@ -302,6 +327,7 @@ export const deleteHabitLog = async (
         received: { year, month, day },
         details: error instanceof Error ? error.message : "Unknown error",
       });
+      console.log("Habit log deletion failed: Date parsing error");
       return;
     }
 
@@ -313,6 +339,7 @@ export const deleteHabitLog = async (
 
       if (!log) {
         res.status(404).json({ error: "Habit log not found or unauthorized" });
+        console.log("Habit log deletion failed: Log not found or unauthorized");
         return;
       }
 
@@ -323,11 +350,17 @@ export const deleteHabitLog = async (
         // If count is 1, delete the log entirely
         await log.destroy();
         logDeleted = true;
+        console.log(
+          `Habit log deleted successfully for user: ${userId}, habit: ${habitId}`
+        );
       } else {
         // Otherwise decrement the count
         log.count -= 1;
         await log.save();
         updatedCount = log.count;
+        console.log(
+          `Habit log count decremented for user: ${userId}, habit: ${habitId}, new count: ${updatedCount}`
+        );
       }
 
       // Return only flat format
