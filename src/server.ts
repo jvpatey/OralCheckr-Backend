@@ -24,6 +24,7 @@ const corsOptions = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+  exposedHeaders: ["set-cookie"],
 };
 
 console.log(
@@ -31,8 +32,17 @@ console.log(
 );
 
 /* -- Middleware Configuration -- */
+// Parse cookies from request headers
+app.use(cookieParser());
+
 // Enable CORS with credentials for the frontend
 app.use(cors(corsOptions));
+
+// Parse JSON request bodies
+app.use(express.json());
+
+// Parse URL-encoded request bodies (form submissions)
+app.use(express.urlencoded({ extended: false }));
 
 // Debug logging for auth requests
 app.use((req, res, next) => {
@@ -41,20 +51,31 @@ app.use((req, res, next) => {
       path: req.path,
       method: req.method,
       cookies: req.cookies,
-      headers: req.headers,
+      headers: {
+        origin: req.headers.origin,
+        cookie: req.headers.cookie || "No cookie present",
+      },
     });
   }
   next();
 });
 
-// Parse JSON request bodies
-app.use(express.json());
-
-// Parse URL-encoded request bodies (form submissions)
-app.use(express.urlencoded({ extended: false }));
-
-// Parse cookies from request headers
-app.use(cookieParser());
+// Add cookie security middleware
+app.use((req, res, next) => {
+  const originalCookie = res.cookie;
+  res.cookie = function (name: string, value: any, options: any = {}) {
+    const secureOptions = {
+      sameSite: "none" as const,
+      secure: true,
+      httpOnly: true,
+      path: "/",
+      domain:
+        process.env.NODE_ENV === "production" ? ".onrender.com" : undefined,
+    };
+    return originalCookie(name, value, { ...options, ...secureOptions });
+  };
+  next();
+});
 
 /* -- API Routes -- */
 // Health check endpoint for monitoring and Render's health checks
