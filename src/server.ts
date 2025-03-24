@@ -11,16 +11,15 @@ import habitLogRoutes from "./routes/habitLogRoutes";
 
 /* -- OralCheckr Backend Server -- */
 
-// Load environment variables from .env file
+// Initialize server and load environment variables
 dotenv.config();
-
-// Server configuration
 const port = process.env.PORT || 3000;
 const app = express();
 
-// CORS configuration for frontend access
+// Set allowed origins for CORS
 const allowedOrigins = ["http://localhost:5173", "https://jvpatey.github.io"];
 
+// Configure CORS options with credentials and headers
 const corsOptions = {
   origin: function (
     origin: string | undefined,
@@ -93,15 +92,14 @@ const startServer = async () => {
   try {
     // Only connect to database if not in test mode
     if (process.env.NODE_ENV !== "test") {
-      // First establish database connection
+      // Establish database connection
       const connected = await connectDB();
       if (!connected) {
         console.error("Could not connect to database. Server will not start.");
         return;
       }
 
-      // Then synchronize models with the database
-      // The 'alter: true' option updates tables to match models
+      // Synchronize models with the database
       await sequelize.sync({ alter: true });
       console.log("All models synchronized successfully.");
     }
@@ -115,12 +113,10 @@ const startServer = async () => {
   }
 };
 
-// Only start if:
-// 1. Not in test mode (prevents test runs from starting the server)
-// 2. This file is being run directly (not imported by another file)
+// Only start if not in test mode
 if (process.env.NODE_ENV !== "test" && require.main === module) {
   startServer();
 }
 
-// Export the Express app for testing
+// Export the Express app
 export default app;
