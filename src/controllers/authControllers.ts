@@ -380,3 +380,49 @@ export const convertGuestToUser = async (
     res.status(500).json({ error: "Failed to convert guest account" });
   }
 };
+
+/* -- Get user profile information -- */
+export const getUserProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Profile fetch failed: No user found");
+      return;
+    }
+
+    const user = await User.findByPk(req.user.userId, {
+      attributes: ["userId", "firstName", "lastName", "email", "isGuest"],
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Profile fetch failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot access profile information",
+        isGuest: true,
+      });
+      console.log(`Profile access denied: Guest user ${user.email}`);
+      return;
+    }
+
+    res.status(200).json({
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      isGuest: user.isGuest,
+    });
+    console.log(`Profile fetch successful: User ${user.email}`);
+  } catch (error) {
+    console.error(`Profile fetch error: ${error}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
