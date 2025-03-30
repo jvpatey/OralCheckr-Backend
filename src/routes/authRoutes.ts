@@ -8,6 +8,7 @@ import {
   convertGuestToUser,
   getUserProfile,
   updateProfile,
+  deleteAccount,
 } from "../controllers/authControllers";
 import { verifyToken } from "../middlewares/authMiddleware";
 
@@ -22,5 +23,6 @@ router.post("/logout", logout); // Logout a user
 router.get("/profile", verifyToken, getUserProfile); // Get user profile info
 router.post("/convert-guest", verifyToken, convertGuestToUser); // Guest user convert on new sign up
 router.put("/profile", verifyToken, updateProfile); // Update user profile
+router.delete("/profile", verifyToken, deleteAccount); // Delete user account
 
 export default router;

@@ -536,3 +536,66 @@ export const updateProfile = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+/* -- Delete user account -- */
+export const deleteAccount = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Account deletion failed: No user found");
+      return;
+    }
+
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Account deletion failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot delete their account",
+        isGuest: true,
+      });
+      console.log(`Account deletion denied: Guest user ${user.email}`);
+      return;
+    }
+
+    // Delete all user-related data in the correct order
+    // 1. Delete habit logs
+    await HabitLog.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted habit logs for user ${req.user.userId}`);
+
+    // 2. Delete habits
+    await Habit.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted habits for user ${req.user.userId}`);
+
+    // 3. Delete questionnaire responses
+    await QuestionnaireResponse.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted questionnaire responses for user ${req.user.userId}`);
+
+    // 4. Delete the user account
+    await user.destroy();
+    console.log(`Deleted user account ${user.email}`);
+
+    // Clear the authentication cookie with the same options used when setting it
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      path: "/",
+      expires: new Date(0), // Set expiration to the past
+    });
+
+    res.status(200).json({ message: "Account deleted successfully" });
+    console.log(`Account deletion successful for user ${user.email}`);
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+};
