@@ -17,7 +17,12 @@ const port = process.env.PORT || 3000;
 const app = express();
 
 // Set allowed origins for CORS
-const allowedOrigins = ["http://localhost:5173", "https://jvpatey.github.io"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://jvpatey.github.io",
+  "https://oralcheckr-backend.onrender.com",
+];
 
 // Configure CORS options with credentials and headers
 const corsOptions = {
@@ -25,22 +30,35 @@ const corsOptions = {
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Filter out empty strings from allowedOrigins
+    const validOrigins = allowedOrigins.filter((o) => o);
+    if (!origin || validOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log(`Origin ${origin} not allowed by CORS`);
       callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
-  exposedHeaders: ["set-cookie"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Cookie",
+    "Origin",
+    "Accept",
+  ],
+  exposedHeaders: ["Set-Cookie"],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
 console.log(
   `CORS configured for ${
     process.env.NODE_ENV
-  } environment with allowed origins: ${allowedOrigins.join(", ")}`
+  } environment with allowed origins: ${allowedOrigins
+    .filter((o) => o)
+    .join(", ")}`
 );
 
 /* -- Middleware Configuration -- */
