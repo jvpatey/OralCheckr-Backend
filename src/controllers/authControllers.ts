@@ -394,7 +394,14 @@ export const getUserProfile = async (
     }
 
     const user = await User.findByPk(req.user.userId, {
-      attributes: ["userId", "firstName", "lastName", "email", "isGuest"],
+      attributes: [
+        "userId",
+        "firstName",
+        "lastName",
+        "email",
+        "isGuest",
+        "avatar",
+      ],
     });
 
     if (!user) {
@@ -419,10 +426,65 @@ export const getUserProfile = async (
       lastName: user.lastName,
       email: user.email,
       isGuest: user.isGuest,
+      avatar: user.avatar,
     });
     console.log(`Profile fetch successful: User ${user.email}`);
   } catch (error) {
     console.error(`Profile fetch error: ${error}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* -- Update user profile -- */
+export const updateProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Profile update failed: No user found");
+      return;
+    }
+
+    const { avatar } = req.body;
+
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Profile update failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot update profile",
+        isGuest: true,
+      });
+      console.log(`Profile update denied: Guest user ${user.email}`);
+      return;
+    }
+
+    // Update avatar if provided
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+      isGuest: user.isGuest,
+    });
+
+    console.log(`Profile updated successfully for user ${user.email}`);
+  } catch (error) {
+    console.error("Error updating profile:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
