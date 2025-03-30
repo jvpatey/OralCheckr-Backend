@@ -103,7 +103,7 @@ describe("Questionnaire Endpoints", () => {
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
         "error",
-        "Unauthorized - No token provided"
+        "Unauthorized: No token provided"
       );
     });
 
@@ -171,7 +171,7 @@ describe("Questionnaire Endpoints", () => {
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
         "error",
-        "Unauthorized - No token provided"
+        "Unauthorized: No token provided"
       );
     });
 
@@ -240,7 +240,7 @@ describe("Questionnaire Endpoints", () => {
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
         "error",
-        "Unauthorized - No token provided"
+        "Unauthorized: No token provided"
       );
     });
 
@@ -315,7 +315,7 @@ describe("Questionnaire Endpoints", () => {
       expect(res.statusCode).toEqual(401);
       expect(res.body).toHaveProperty(
         "error",
-        "Unauthorized - No token provided"
+        "Unauthorized: No token provided"
       );
     });
 
