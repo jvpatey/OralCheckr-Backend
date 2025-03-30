@@ -447,7 +447,7 @@ export const updateProfile = async (
       return;
     }
 
-    const { avatar } = req.body;
+    const { avatar, email, currentPassword, newPassword } = req.body;
 
     const user = await User.findByPk(req.user.userId);
     if (!user) {
@@ -464,6 +464,54 @@ export const updateProfile = async (
       });
       console.log(`Profile update denied: Guest user ${user.email}`);
       return;
+    }
+
+    // Handle email update
+    if (email && email !== user.email) {
+      // Check if new email already exists
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        res.status(409).json({ error: "Email already exists" });
+        console.log(`Profile update failed: Email ${email} already exists`);
+        return;
+      }
+      user.email = email;
+    }
+
+    // Handle password update
+    if (newPassword) {
+      if (!currentPassword) {
+        res
+          .status(400)
+          .json({ error: "Current password is required to change password" });
+        console.log("Profile update failed: Current password not provided");
+        return;
+      }
+
+      // Verify current password
+      const passwordMatch = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+      if (!passwordMatch) {
+        res.status(401).json({ error: "Current password is incorrect" });
+        console.log("Profile update failed: Current password incorrect");
+        return;
+      }
+
+      // Validate new password
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        res.status(400).json({ error: passwordError });
+        console.log(
+          `Profile update failed: New password validation failed - ${passwordError}`
+        );
+        return;
+      }
+
+      // Hash and update new password
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
     }
 
     // Update avatar if provided
