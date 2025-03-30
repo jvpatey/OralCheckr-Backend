@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
+import { OAuth2Client } from "google-auth-library";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -597,5 +598,109 @@ export const deleteAccount = async (
   } catch (error) {
     console.error("Error deleting account:", error);
     res.status(500).json({ error: "Failed to delete account" });
+  }
+};
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+/* -- Google Login -- */
+export const googleLogin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      res.status(400).json({ error: "Google credential is required" });
+      console.log("Google login failed: No credential provided");
+      return;
+    }
+
+    console.log(
+      `Google login attempt with client ID: ${process.env.GOOGLE_CLIENT_ID}`
+    );
+
+    // Verify Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: "Invalid Google token" });
+      console.log("Google login failed: Invalid token or missing email");
+      return;
+    }
+
+    const { email, given_name, family_name, sub: googleId } = payload;
+
+    // Check if user already exists
+    let user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Create new user if they don't exist
+      const salt = await bcrypt.genSalt(10);
+      // Create a secure random password
+      const randomPassword =
+        Math.random().toString(36).slice(-10) +
+        Math.random().toString(36).slice(-10) +
+        "A1!";
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = await User.create({
+        firstName: given_name || "Google",
+        lastName: family_name || "User",
+        email,
+        password: hashedPassword,
+        googleId,
+      });
+      console.log(`New user created from Google login: ${email}`);
+    } else if (!user.googleId) {
+      // Update existing user with Google ID if they logged in with email/password before
+      user.googleId = googleId;
+      await user.save();
+      console.log(`Updated existing user with Google ID: ${email}`);
+    }
+
+    // Generate token
+    const accessToken = generateAccessToken(user.userId);
+
+    // Set cookie
+    res.cookie(
+      "accessToken",
+      accessToken,
+      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+    ); // 7 days
+
+    res
+      .status(200)
+      .json({ message: "Google login successful", userId: user.userId });
+    console.log(`Google login successful for user ${user.email}`);
+  } catch (error: any) {
+    console.error("Google login error:", error);
+
+    // Check for audience mismatch error
+    if (
+      error.message &&
+      (error.message.includes("Wrong recipient") ||
+        error.message.includes("audience"))
+    ) {
+      console.error(
+        "Google Client ID mismatch. Check that your frontend and backend Client IDs match."
+      );
+      console.error(
+        `Current backend Client ID: ${process.env.GOOGLE_CLIENT_ID}`
+      );
+      res.status(400).json({
+        error: "Google authentication configuration error",
+        message:
+          "There is a mismatch between your frontend and backend Google configuration.",
+      });
+      return;
+    }
+
+    res.status(500).json({ error: "Google authentication failed" });
   }
 };
