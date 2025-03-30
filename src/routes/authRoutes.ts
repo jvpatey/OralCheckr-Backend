@@ -1,4 +1,4 @@
-import { Router } from "express";
+import express from "express";
 import {
   register,
   login,
@@ -6,17 +6,25 @@ import {
   logout,
   validateUser,
   convertGuestToUser,
+  getUserProfile,
+  updateProfile,
+  deleteAccount,
+  googleLogin,
 } from "../controllers/authControllers";
 import { verifyToken } from "../middlewares/authMiddleware";
 
-const router = Router();
+const router = express.Router();
 
 /* -- Auth Routes -- */
 router.post("/register", register); // Register a user
 router.post("/login", login); // Login a user
 router.get("/validate", verifyToken, validateUser); // Validate user
 router.post("/guest-login", guestLogin); // Guest login
-router.post("/convert-guest", verifyToken, convertGuestToUser); // Guest user convert on new sign up
 router.post("/logout", logout); // Logout a user
+router.get("/profile", verifyToken, getUserProfile); // Get user profile info
+router.post("/convert-guest", verifyToken, convertGuestToUser); // Guest user convert on new sign up
+router.put("/profile", verifyToken, updateProfile); // Update user profile
+router.delete("/profile", verifyToken, deleteAccount); // Delete user account
+router.post("/google-login", googleLogin);
 
 export default router;

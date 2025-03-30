@@ -11,11 +11,16 @@ interface UserAttributes {
   email: string;
   password: string;
   isGuest?: boolean;
+  avatar?: string;
+  googleId?: string;
 }
 
 /* -- User model creation attributes -- */
 interface UserCreationAttributes
-  extends Optional<UserAttributes, "userId" | "isGuest"> {}
+  extends Optional<
+    UserAttributes,
+    "userId" | "isGuest" | "avatar" | "googleId"
+  > {}
 
 /* -- User model -- */
 class User
@@ -28,6 +33,8 @@ class User
   public email!: string;
   public password!: string;
   public isGuest!: boolean;
+  public avatar?: string;
+  public googleId?: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -90,6 +97,20 @@ User.init(
       type: BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    avatar: {
+      type: STRING(255),
+      allowNull: true,
+      field: "avatar",
+      validate: {
+        isUrl: { msg: "Avatar must be a valid URL" },
+      },
+    },
+    googleId: {
+      type: STRING(255),
+      allowNull: true,
+      field: "googleId",
+      unique: true,
     },
   },
   {

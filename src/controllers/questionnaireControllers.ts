@@ -113,6 +113,15 @@ export const getResponseByUser = async (
     // Fetch the user's response
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
+      attributes: [
+        "id",
+        "userId",
+        "responses",
+        "totalScore",
+        "currentQuestion",
+        "createdAt",
+        "updatedAt",
+      ],
     });
 
     if (!responseRecord) {
@@ -277,5 +286,45 @@ export const saveGuestQuestionnaireResponse = async (
   } catch (error) {
     console.error("Error saving guest questionnaire response:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* -- Delete questionnaire data -- */
+export const deleteQuestionnaireData = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Questionnaire deletion failed: No user found");
+      return;
+    }
+
+    // Find and delete the user's questionnaire response
+    const response = await QuestionnaireResponse.findOne({
+      where: { userId: req.user.userId },
+    });
+
+    if (!response) {
+      res
+        .status(404)
+        .json({ error: "No questionnaire data found for this user" });
+      console.log(
+        `Questionnaire deletion failed: No data found for user ${req.user.userId}`
+      );
+      return;
+    }
+
+    await response.destroy();
+    console.log(
+      `Questionnaire data deleted successfully for user ${req.user.userId}`
+    );
+    res
+      .status(200)
+      .json({ message: "Questionnaire data deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting questionnaire data:", error);
+    res.status(500).json({ error: "Failed to delete questionnaire data" });
   }
 };

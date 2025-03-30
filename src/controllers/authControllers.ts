@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
+import { OAuth2Client } from "google-auth-library";
 
 const generateAccessToken = (userId: number): string => {
   return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
@@ -378,5 +379,328 @@ export const convertGuestToUser = async (
   } catch (error) {
     console.error("Error converting guest to user:", error);
     res.status(500).json({ error: "Failed to convert guest account" });
+  }
+};
+
+/* -- Get user profile information -- */
+export const getUserProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Profile fetch failed: No user found");
+      return;
+    }
+
+    const user = await User.findByPk(req.user.userId, {
+      attributes: [
+        "userId",
+        "firstName",
+        "lastName",
+        "email",
+        "isGuest",
+        "avatar",
+      ],
+    });
+
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Profile fetch failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot access profile information",
+        isGuest: true,
+      });
+      console.log(`Profile access denied: Guest user ${user.email}`);
+      return;
+    }
+
+    res.status(200).json({
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      isGuest: user.isGuest,
+      avatar: user.avatar,
+    });
+    console.log(`Profile fetch successful: User ${user.email}`);
+  } catch (error) {
+    console.error(`Profile fetch error: ${error}`);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* -- Update user profile -- */
+export const updateProfile = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Profile update failed: No user found");
+      return;
+    }
+
+    const { avatar, email, currentPassword, newPassword } = req.body;
+
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Profile update failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot update profile",
+        isGuest: true,
+      });
+      console.log(`Profile update denied: Guest user ${user.email}`);
+      return;
+    }
+
+    // Handle email update
+    if (email && email !== user.email) {
+      // Check if new email already exists
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        res.status(409).json({ error: "Email already exists" });
+        console.log(`Profile update failed: Email ${email} already exists`);
+        return;
+      }
+      user.email = email;
+    }
+
+    // Handle password update
+    if (newPassword) {
+      if (!currentPassword) {
+        res
+          .status(400)
+          .json({ error: "Current password is required to change password" });
+        console.log("Profile update failed: Current password not provided");
+        return;
+      }
+
+      // Verify current password
+      const passwordMatch = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+      if (!passwordMatch) {
+        res.status(401).json({ error: "Current password is incorrect" });
+        console.log("Profile update failed: Current password incorrect");
+        return;
+      }
+
+      // Validate new password
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        res.status(400).json({ error: passwordError });
+        console.log(
+          `Profile update failed: New password validation failed - ${passwordError}`
+        );
+        return;
+      }
+
+      // Hash and update new password
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    // Update avatar if provided
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+      isGuest: user.isGuest,
+    });
+
+    console.log(`Profile updated successfully for user ${user.email}`);
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* -- Delete user account -- */
+export const deleteAccount = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized: No user found" });
+      console.log("Account deletion failed: No user found");
+      return;
+    }
+
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(`Account deletion failed: User ${req.user.userId} not found`);
+      return;
+    }
+
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Access denied: Guest users cannot delete their account",
+        isGuest: true,
+      });
+      console.log(`Account deletion denied: Guest user ${user.email}`);
+      return;
+    }
+
+    // Delete all user-related data in the correct order
+    // 1. Delete habit logs
+    await HabitLog.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted habit logs for user ${req.user.userId}`);
+
+    // 2. Delete habits
+    await Habit.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted habits for user ${req.user.userId}`);
+
+    // 3. Delete questionnaire responses
+    await QuestionnaireResponse.destroy({ where: { userId: req.user.userId } });
+    console.log(`Deleted questionnaire responses for user ${req.user.userId}`);
+
+    // 4. Delete the user account
+    await user.destroy();
+    console.log(`Deleted user account ${user.email}`);
+
+    // Clear the authentication cookie with the same options used when setting it
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      path: "/",
+      expires: new Date(0), // Set expiration to the past
+    });
+
+    res.status(200).json({ message: "Account deleted successfully" });
+    console.log(`Account deletion successful for user ${user.email}`);
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+};
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+/* -- Google Login -- */
+export const googleLogin = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      res.status(400).json({ error: "Google credential is required" });
+      console.log("Google login failed: No credential provided");
+      return;
+    }
+
+    console.log(
+      `Google login attempt with client ID: ${process.env.GOOGLE_CLIENT_ID}`
+    );
+
+    // Verify Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: "Invalid Google token" });
+      console.log("Google login failed: Invalid token or missing email");
+      return;
+    }
+
+    const { email, given_name, family_name, sub: googleId } = payload;
+
+    // Check if user already exists
+    let user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Create new user if they don't exist
+      const salt = await bcrypt.genSalt(10);
+      // Create a secure random password
+      const randomPassword =
+        Math.random().toString(36).slice(-10) +
+        Math.random().toString(36).slice(-10) +
+        "A1!";
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = await User.create({
+        firstName: given_name || "Google",
+        lastName: family_name || "User",
+        email,
+        password: hashedPassword,
+        googleId,
+      });
+      console.log(`New user created from Google login: ${email}`);
+    } else if (!user.googleId) {
+      // Update existing user with Google ID if they logged in with email/password before
+      user.googleId = googleId;
+      await user.save();
+      console.log(`Updated existing user with Google ID: ${email}`);
+    }
+
+    // Generate token
+    const accessToken = generateAccessToken(user.userId);
+
+    // Set cookie
+    res.cookie(
+      "accessToken",
+      accessToken,
+      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+    ); // 7 days
+
+    res
+      .status(200)
+      .json({ message: "Google login successful", userId: user.userId });
+    console.log(`Google login successful for user ${user.email}`);
+  } catch (error: any) {
+    console.error("Google login error:", error);
+
+    // Check for audience mismatch error
+    if (
+      error.message &&
+      (error.message.includes("Wrong recipient") ||
+        error.message.includes("audience"))
+    ) {
+      console.error(
+        "Google Client ID mismatch. Check that your frontend and backend Client IDs match."
+      );
+      console.error(
+        `Current backend Client ID: ${process.env.GOOGLE_CLIENT_ID}`
+      );
+      res.status(400).json({
+        error: "Google authentication configuration error",
+        message:
+          "There is a mismatch between your frontend and backend Google configuration.",
+      });
+      return;
+    }
+
+    res.status(500).json({ error: "Google authentication failed" });
   }
 };
