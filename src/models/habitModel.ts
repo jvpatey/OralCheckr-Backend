@@ -2,7 +2,10 @@ import { Model, Optional } from "sequelize";
 import sequelize from "../db/db";
 import { getIntegerType, STRING } from "../db/dataTypes";
 
-/* -- Habit model attributes -- */
+/* -- Habit Model -- */
+
+// Interfaces
+
 interface HabitAttributes {
   habitId: number;
   name: string;
@@ -12,15 +15,15 @@ interface HabitAttributes {
   updatedAt?: Date;
 }
 
-/* -- Attributes that can be null/undefined when creating a new Habit -- */
 interface HabitCreationAttributes
   extends Optional<HabitAttributes, "habitId" | "createdAt" | "updatedAt"> {}
 
-/* -- Habit model -- */
+/* -- Habit Model Definition -- */
 class Habit
   extends Model<HabitAttributes, HabitCreationAttributes>
   implements HabitAttributes
 {
+  // Define the attributes
   public habitId!: number;
   public name!: string;
   public count!: number;

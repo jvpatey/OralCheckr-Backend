@@ -3,6 +3,8 @@ import sequelize from "../db/db";
 import Habit from "./habitModel";
 import { getIntegerType, DATE } from "../db/dataTypes";
 
+/* -- Habit Log Model -- */
+
 interface HabitLogAttributes {
   logId: number;
   habitId: number;
@@ -13,15 +15,15 @@ interface HabitLogAttributes {
   updatedAt?: Date;
 }
 
-/* -- Attributes that can be null/undefined when creating a new HabitLog -- */
 interface HabitLogCreationAttributes
   extends Optional<HabitLogAttributes, "logId" | "createdAt" | "updatedAt"> {}
 
-/* -- HabitLog model -- */
+/* -- HabitLog Model Definition -- */
 class HabitLog
   extends Model<HabitLogAttributes, HabitLogCreationAttributes>
   implements HabitLogAttributes
 {
+  // Define the attributes
   public logId!: number;
   public habitId!: number;
   public userId!: number;
@@ -97,12 +99,15 @@ HabitLog.init(
 );
 
 /* -- Associations -- */
+
+// A habit has many logs
 Habit.hasMany(HabitLog, {
   foreignKey: "habitId",
   as: "logs",
   onDelete: "CASCADE",
 });
 
+// A log belongs to a habit
 HabitLog.belongsTo(Habit, {
   foreignKey: "habitId",
   as: "habit",

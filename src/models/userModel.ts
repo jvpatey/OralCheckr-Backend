@@ -3,7 +3,10 @@ import bcrypt from "bcryptjs";
 import sequelize from "../db/db";
 import { getIntegerType, STRING, BOOLEAN } from "../db/dataTypes";
 
-/* -- User model attributes -- */
+/* -- User Model -- */
+
+// Interfaces
+
 interface UserAttributes {
   userId: number;
   firstName: string;
@@ -15,14 +18,13 @@ interface UserAttributes {
   googleId?: string;
 }
 
-/* -- User model creation attributes -- */
 interface UserCreationAttributes
   extends Optional<
     UserAttributes,
     "userId" | "isGuest" | "avatar" | "googleId"
   > {}
 
-/* -- User model -- */
+/* -- User Model Definition -- */
 class User
   extends Model<UserAttributes, UserCreationAttributes>
   implements UserAttributes
