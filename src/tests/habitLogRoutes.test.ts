@@ -12,8 +12,12 @@ import {
   standardDateParams,
 } from "./utils/testUtils";
 
+/* -- Habit Log Routes Tests -- */
+
+// JWT secret for tests
 process.env.JWT_SECRET = "testsecret";
 
+/* -- Initialize test suite for habit log routes -- */
 describe("Habit Log Routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,9 +27,8 @@ describe("Habit Log Routes", () => {
     await sequelize.close();
   });
 
-  // Tests for GET /habit-logs/:habitId endpoint
+  // Test the habit log GET endpoint
   describe("GET /habit-logs/:habitId", () => {
-    // Test: Successfully retrieve all logs for a specific habit
     it("should return all logs for a specific habit", async () => {
       jest.spyOn(HabitLog, "findAll").mockResolvedValue(mockLogs as any);
 
@@ -35,18 +38,14 @@ describe("Habit Log Routes", () => {
       expect(res.body).toHaveProperty("logs");
       expect(Array.isArray(res.body.logs)).toBe(true);
       expect(res.body.logs.length).toBe(2);
-
-      // Check first log has expected properties
       expectLogProperties(res.body.logs[0]);
     });
 
-    // Test: Ensure authentication is required
     it("should return 401 if not authenticated", async () => {
       const res = await makeUnauthenticatedRequest("get", "/habit-logs/1");
       expect(res.status).toBe(401);
     });
 
-    // Test: Handle case when no logs exist
     it("should return empty object if no logs exist", async () => {
       jest.spyOn(HabitLog, "findAll").mockResolvedValue([]);
 
@@ -56,7 +55,6 @@ describe("Habit Log Routes", () => {
       expect(res.body).toEqual({ logs: [] });
     });
 
-    // Test: Filter logs by year and month
     it("should filter logs by year and month if provided", async () => {
       jest.spyOn(HabitLog, "findAll").mockImplementation((options: any) => {
         if (options?.where?.date?.[Op.between]) {
@@ -76,9 +74,8 @@ describe("Habit Log Routes", () => {
     });
   });
 
-  // Tests for POST /habit-logs/:habitId/increment endpoint
+  // Tests the habit log increment endpoint
   describe("POST /habit-logs/:habitId/increment", () => {
-    // Test: Successfully increment habit count for a specific date
     it("should increment habit count for a specific date", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue(null);
@@ -105,7 +102,6 @@ describe("Habit Log Routes", () => {
       expect(res.body.log.count).toBe(1);
     });
 
-    // Test: Increment existing log count
     it("should increment existing log count", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
@@ -136,13 +132,12 @@ describe("Habit Log Routes", () => {
       expect(res.body.log).toHaveProperty("count", 2);
     });
 
-    // Test: Validate input parameters and handle errors
     it("should validate input parameters and handle errors", async () => {
       // Test missing date parameters
       const resMissingParams = await makeAuthenticatedRequest(
         "post",
         "/habit-logs/1/increment",
-        { year: 2023, month: "June" } // day is missing
+        { year: 2023, month: "June" }
       );
       expect(resMissingParams.status).toBe(400);
       expect(resMissingParams.body).toHaveProperty("error");
@@ -173,7 +168,6 @@ describe("Habit Log Routes", () => {
       expect(resFutureDate.body.error).toContain("future date");
     });
 
-    // Test: Handle non-existent habit and max count limit
     it("should handle non-existent habit and max count limit", async () => {
       // Test non-existent habit
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
@@ -191,7 +185,7 @@ describe("Habit Log Routes", () => {
         habitId: 1,
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
-        count: 3, // Already at max (mockHabits[0].count is 3)
+        count: 3,
       } as any);
 
       const resMaxCount = await makeAuthenticatedRequest(
@@ -205,9 +199,8 @@ describe("Habit Log Routes", () => {
     });
   });
 
-  // Tests for POST /habit-logs/:habitId/decrement endpoint
+  // Test the habit log decrement endpoint
   describe("POST /habit-logs/:habitId/decrement", () => {
-    // Test: Delete log if count becomes 0
     it("should delete log if count becomes 0", async () => {
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         logId: 1,
@@ -218,6 +211,7 @@ describe("Habit Log Routes", () => {
         destroy: jest.fn().mockResolvedValue(true),
       } as any);
 
+      // Make request
       const res = await makeAuthenticatedRequest(
         "post",
         "/habit-logs/1/decrement",
@@ -229,7 +223,6 @@ describe("Habit Log Routes", () => {
       expect(res.body).toHaveProperty("deleted", true);
     });
 
-    // Test: Decrement habit count
     it("should decrement habit count for a specific date", async () => {
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         logId: 1,
@@ -254,7 +247,6 @@ describe("Habit Log Routes", () => {
       expect(res.body.log).toHaveProperty("count", 1);
     });
 
-    // Test: Handle non-existent log
     it("should return 404 if log not found", async () => {
       jest.spyOn(HabitLog, "findOne").mockResolvedValue(null);
 
@@ -269,9 +261,7 @@ describe("Habit Log Routes", () => {
     });
   });
 
-  // Test: Error handling across all endpoints
   describe("Error Handling", () => {
-    // Test: Authentication required for all endpoints
     it("should require authentication for all endpoints", async () => {
       // GET /habits
       const getRes = await makeUnauthenticatedRequest("get", "/habit-logs/1");
@@ -294,7 +284,6 @@ describe("Habit Log Routes", () => {
       expect(decrementRes.status).toBe(401);
     });
 
-    // Test: Database errors are handled gracefully
     it("should handle database errors gracefully", async () => {
       // Test GET endpoint
       jest
@@ -329,7 +318,6 @@ describe("Habit Log Routes", () => {
       expect(decrementRes.body).toHaveProperty("error");
     });
 
-    // Test: Authorization and access control
     it("should enforce proper authorization and access control", async () => {
       // Test accessing another user's habit logs
       jest.spyOn(HabitLog, "findAll").mockImplementation((options: any) => {
