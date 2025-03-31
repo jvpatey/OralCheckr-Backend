@@ -37,6 +37,11 @@ class User
   public googleId?: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  // Instance method to validate password
+  public async validatePassword(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.password);
+  }
 }
 
 /* -- Initialize the User model -- */
