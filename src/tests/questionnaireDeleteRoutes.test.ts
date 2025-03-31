@@ -9,9 +9,11 @@ import {
   makeGuestRequest,
 } from "./utils/testUtils";
 
+/* -- Questionnaire Delete Routes Tests -- */
 // JWT secret for test tokens
 process.env.JWT_SECRET = "testsecret";
 
+/* -- Initialize test suite for questionnaire delete routes -- */
 describe("Questionnaire Profile Endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -21,10 +23,9 @@ describe("Questionnaire Profile Endpoints", () => {
     await sequelize.close();
   });
 
-  // Test: DELETE /questionnaire/response
+  // Tests the questionnaire response DELETE endpoint
   describe("DELETE /questionnaire/response", () => {
     it("should successfully delete questionnaire data", async () => {
-      // Mock finding the questionnaire response
       const mockDestroy = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
         id: 1,
@@ -48,7 +49,6 @@ describe("Questionnaire Profile Endpoints", () => {
     });
 
     it("should return 404 if no questionnaire data found", async () => {
-      // Mock not finding any questionnaire response
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue(null);
 
       const res = await makeAuthenticatedRequest(
@@ -73,10 +73,9 @@ describe("Questionnaire Profile Endpoints", () => {
     });
   });
 
-  // Test: POST /questionnaire/guest
+  // Tests the guest questionnaire POST endpoint
   describe("POST /questionnaire/guest", () => {
     it("should save questionnaire data for guest user", async () => {
-      // Mock creating questionnaire response
       jest.spyOn(QuestionnaireResponse, "create").mockResolvedValue({
         id: 1,
         userId: mockGuestUser.userId,
@@ -95,7 +94,6 @@ describe("Questionnaire Profile Endpoints", () => {
     });
 
     it("should return 401 if not a guest user", async () => {
-      // Regular authenticated request, not a guest
       const res = await makeAuthenticatedRequest(
         "post",
         "/questionnaire/guest",

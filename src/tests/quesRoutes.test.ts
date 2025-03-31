@@ -11,9 +11,12 @@ import {
   expectQuestionnaireProperties,
 } from "./utils/testUtils";
 
+/* -- Questionnaire Routes Tests -- */
+
 // JWT secret for test tokens
 process.env.JWT_SECRET = "testsecret";
 
+/* -- Initialize test suite for questionnaire routes -- */
 describe("Questionnaire Endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,6 +26,7 @@ describe("Questionnaire Endpoints", () => {
     await sequelize.close();
   });
 
+  // Tests the questionnaire response POST endpoint
   describe("POST /questionnaire/response", () => {
     it("should create a new questionnaire response if none exists", async () => {
       jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
@@ -87,7 +91,6 @@ describe("Questionnaire Endpoints", () => {
       expect(res.body.response).toHaveProperty("currentQuestion", 1);
     });
 
-    // Add error handling tests
     it("should return 401 when no token is provided", async () => {
       const responseData = {
         responses: { 1: 3, 2: [2, 3] },
@@ -111,7 +114,6 @@ describe("Questionnaire Endpoints", () => {
       jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
 
       const responseData = {
-        // Missing totalScore
         responses: { 1: 3, 2: [2, 3] },
       };
 
@@ -136,7 +138,7 @@ describe("Questionnaire Endpoints", () => {
         "post",
         "/questionnaire/response",
         responseData,
-        9999 // Non-existent user ID
+        9999
       );
 
       expect(res.statusCode).toEqual(404);
@@ -144,6 +146,7 @@ describe("Questionnaire Endpoints", () => {
     });
   });
 
+  // Tests the questionnaire response GET endpoint
   describe("GET /questionnaire/response", () => {
     it("should retrieve the questionnaire response for the user", async () => {
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
@@ -193,6 +196,7 @@ describe("Questionnaire Endpoints", () => {
     });
   });
 
+  // Tests the questionnaire progress PUT endpoint
   describe("PUT /questionnaire/progress", () => {
     it("should update the questionnaire progress", async () => {
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
@@ -277,7 +281,7 @@ describe("Questionnaire Endpoints", () => {
         "put",
         "/questionnaire/progress",
         progressData,
-        7777 // User ID with no existing progress
+        7777
       );
 
       expect(res.statusCode).toEqual(201);
@@ -288,6 +292,7 @@ describe("Questionnaire Endpoints", () => {
     });
   });
 
+  // Tests the questionnaire progress GET endpoint
   describe("GET /questionnaire/progress", () => {
     it("should retrieve the questionnaire progress for the user", async () => {
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
@@ -337,7 +342,7 @@ describe("Questionnaire Endpoints", () => {
     });
   });
 
-  // Add tests for guest questionnaire functionality
+  // Tests the guest questionnaire POST endpoint
   describe("POST /questionnaire/guest", () => {
     it("should save guest questionnaire responses", async () => {
       jest.spyOn(QuestionnaireResponse, "create").mockResolvedValueOnce({
