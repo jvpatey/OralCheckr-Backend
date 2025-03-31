@@ -117,7 +117,6 @@ User.init(
       type: STRING(255),
       allowNull: true,
       field: "googleId",
-      unique: true,
     },
   },
   {
@@ -125,6 +124,13 @@ User.init(
     tableName: "users",
     timestamps: true,
     underscored: false,
+    indexes: [
+      {
+        unique: true,
+        fields: ["googleId"],
+        name: "users_googleId_unique",
+      },
+    ],
   }
 );
 
