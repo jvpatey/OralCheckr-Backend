@@ -64,9 +64,9 @@ const getCookieConfig = (maxAge?: number) => {
   // Base configuration
   const config: any = {
     httpOnly: true,
-    secure: true,
+    secure: isProduction, // Only set secure in production
     path: "/",
-    sameSite: "none" as const,
+    sameSite: isProduction ? ("none" as const) : ("lax" as const),
   };
 
   // Test environment configuration
@@ -75,11 +75,26 @@ const getCookieConfig = (maxAge?: number) => {
     config.sameSite = "lax";
   }
 
+  // Development environment configuration
+  if (!isProduction && !isTest) {
+    config.secure = false;
+    config.sameSite = "lax";
+  }
+
+  if (isProduction && process.env.COOKIE_DOMAIN) {
+    config.domain = process.env.COOKIE_DOMAIN;
+  }
+
+  if (config.sameSite === "none") {
+    config.secure = true;
+  }
+
   // Add maxAge if provided
   if (maxAge) {
     config.maxAge = maxAge;
   }
 
+  console.log(`Cookie config: ${JSON.stringify(config)}`);
   return config;
 };
 
@@ -585,13 +600,7 @@ export const deleteAccount = async (
     console.log(`Deleted user account ${user.email}`);
 
     // Clear the authentication cookie with the same options used when setting it
-    res.clearCookie("accessToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      path: "/",
-      expires: new Date(0), // Set expiration to the past
-    });
+    res.clearCookie("accessToken", getCookieConfig());
 
     res.status(200).json({ message: "Account deleted successfully" });
     console.log(`Account deletion successful for user ${user.email}`);
