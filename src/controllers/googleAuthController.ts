@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/userModel";
 import { generateAccessToken, getCookieConfig } from "../utils/authUtils";
+import { Op } from "sequelize";
 
 /* -- Google OAuth Controller -- */
 
@@ -38,12 +39,22 @@ export const googleLogin = async (
       return;
     }
 
-    // Check if user exists
+    // Check if user exists by googleId or email
     let user = await User.findOne({
-      where: { googleId: payload.sub },
+      where: {
+        [Op.or]: [{ googleId: payload.sub }, { email: payload.email }],
+      },
     });
 
-    if (!user) {
+    if (user) {
+      // Update existing user if needed
+      if (!user.googleId) {
+        await user.update({
+          googleId: payload.sub,
+          avatar: payload.picture || user.avatar,
+        });
+      }
+    } else {
       // Create new user if doesn't exist
       user = await User.create({
         firstName: payload.given_name || "",

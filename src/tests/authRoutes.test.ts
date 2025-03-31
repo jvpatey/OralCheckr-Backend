@@ -14,9 +14,6 @@ import {
 
 /* -- Auth Routes Tests -- */
 
-// JWT secret for tests
-process.env.JWT_SECRET = "testsecret";
-
 /* -- Initialize test suite for auth routes -- */
 describe("Auth Routes", () => {
   beforeEach(() => {

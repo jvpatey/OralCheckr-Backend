@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { validatePassword } from "../utils/authUtils";
+import HabitLog from "../models/habitLogModel";
+import Habit from "../models/habitModel";
+import QuestionnaireResponse from "../models/questionnaireResponseModel";
 
 /* -- User Profile Controllers -- */
 
@@ -22,6 +25,15 @@ export const getProfile = async (
       return;
     }
 
+    // Check if user is a guest
+    if (user.isGuest) {
+      res.status(403).json({
+        error: "Guest users cannot access profile",
+        isGuest: true,
+      });
+      return;
+    }
+
     // Send a success response to the client
     res.status(200).json(user);
   } catch (error) {
@@ -36,8 +48,8 @@ export const updateProfile = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Get the first name, last name, and email from the request body
-    const { firstName, lastName, email } = req.body;
+    // Get the fields from the request body
+    const { firstName, lastName, email, avatar } = req.body;
 
     // Check if the user is authenticated
     const userId = req.user?.userId;
@@ -62,22 +74,34 @@ export const updateProfile = async (
       }
     }
 
+    // Create update object with only provided fields
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
     // Update user fields
-    await user.update({
-      firstName: firstName || user.firstName,
-      lastName: lastName || user.lastName,
-      email: email || user.email,
-    });
+    await user.update(updateData);
+
+    // Refresh user data to get updated values
+    const updatedUser = await User.findByPk(userId);
+
+    if (!updatedUser) {
+      res.status(404).json({ error: "User not found after update" });
+      return;
+    }
 
     // Send a success response to the client
     res.status(200).json({
       message: "Profile updated successfully",
       user: {
-        userId: user.userId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        isGuest: user.isGuest,
+        userId: updatedUser.userId,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        avatar: updatedUser.avatar,
+        isGuest: updatedUser.isGuest,
       },
     });
   } catch (error) {
@@ -154,6 +178,11 @@ export const deleteAccount = async (
       res.status(404).json({ error: "User not found" });
       return;
     }
+
+    // Delete all associated data
+    await HabitLog.destroy({ where: { userId } });
+    await Habit.destroy({ where: { userId } });
+    await QuestionnaireResponse.destroy({ where: { userId } });
 
     // Delete user account
     await user.destroy();

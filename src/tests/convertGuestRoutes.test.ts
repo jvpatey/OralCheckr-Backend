@@ -11,9 +11,6 @@ import {
 
 /* -- Convert Guest Routes Tests -- */
 
-// JWT secret for tests
-process.env.JWT_SECRET = "testsecret";
-
 /* -- Initialize test suite for convert guest routes -- */
 describe("Convert Guest Routes", () => {
   beforeEach(() => {

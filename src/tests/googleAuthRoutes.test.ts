@@ -63,11 +63,11 @@ describe("Google Auth Endpoints", () => {
       // Make request
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "valid_token" });
+        .send({ token: "valid_token" });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("message", "Google login successful");
-      expect(res.body).toHaveProperty("userId", 999);
+      expect(res.body.user).toHaveProperty("userId", 999);
 
       // Should have a cookie set
       expect(res.headers["set-cookie"]).toBeDefined();
@@ -75,40 +75,47 @@ describe("Google Auth Endpoints", () => {
     });
 
     it("should login successfully and update googleId for existing user", async () => {
-      const mockSave = jest.fn().mockResolvedValue(undefined);
+      const mockUpdate = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(User, "findOne").mockResolvedValue({
         userId: mockUser.userId,
         email: "google@example.com",
         firstName: "Test",
         lastName: "User",
         googleId: undefined,
-        save: mockSave,
+        avatar: undefined,
+        update: mockUpdate,
       } as any);
 
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "valid_token" });
+        .send({ token: "valid_token" });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("message", "Google login successful");
-      expect(res.body).toHaveProperty("userId", mockUser.userId);
-      expect(mockSave).toHaveBeenCalled();
+      expect(res.body.user).toHaveProperty("userId", mockUser.userId);
+      expect(mockUpdate).toHaveBeenCalledWith({
+        googleId: "google_id_123",
+        avatar: undefined,
+      });
     });
 
-    it("should return 400 for missing credential", async () => {
+    it("should return 400 for missing token", async () => {
       const res = await request(app).post("/auth/google-login").send({});
 
       expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error", "Google credential is required");
+      expect(res.body).toHaveProperty("error", "Token is required");
     });
 
     it("should return 500 for invalid token", async () => {
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "invalid_token" });
+        .send({ token: "invalid_token" });
 
       expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error", "Google authentication failed");
+      expect(res.body).toHaveProperty(
+        "error",
+        "Failed to authenticate with Google"
+      );
     });
   });
 });
