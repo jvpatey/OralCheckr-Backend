@@ -9,9 +9,12 @@ import {
   makeUnauthenticatedRequest,
 } from "./utils/testUtils";
 
+/* -- Profile Routes Tests -- */
+
 // JWT secret for test tokens
 process.env.JWT_SECRET = "testsecret";
 
+/* -- Initialize test suite for profile routes -- */
 describe("Profile Endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -21,10 +24,9 @@ describe("Profile Endpoints", () => {
     await sequelize.close();
   });
 
-  // Test: GET /auth/profile
+  // Tests the profile GET endpoint
   describe("GET /auth/profile", () => {
     it("should return user profile for authenticated user", async () => {
-      // Mock User.findByPk to return a user
       jest.spyOn(User, "findByPk").mockResolvedValue({
         userId: mockUser.userId,
         firstName: "Test",
@@ -53,7 +55,6 @@ describe("Profile Endpoints", () => {
     });
 
     it("should return 403 if user is a guest", async () => {
-      // Mock User.findByPk to return a guest user
       jest.spyOn(User, "findByPk").mockResolvedValue({
         userId: mockUser.userId,
         firstName: "Guest",
@@ -70,10 +71,9 @@ describe("Profile Endpoints", () => {
     });
   });
 
-  // Test: PUT /auth/profile
+  // Tests the profile PUT endpoint
   describe("PUT /auth/profile", () => {
     it("should update avatar successfully", async () => {
-      // Mock User.findByPk to return a user
       const mockSave = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(User, "findByPk").mockResolvedValue({
         userId: mockUser.userId,
@@ -96,7 +96,6 @@ describe("Profile Endpoints", () => {
     });
 
     it("should update email successfully", async () => {
-      // Mock User.findByPk to return a user
       const mockSave = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(User, "findByPk").mockResolvedValue({
         userId: mockUser.userId,
@@ -107,7 +106,6 @@ describe("Profile Endpoints", () => {
         save: mockSave,
       } as any);
 
-      // Mock User.findOne to check if email exists
       jest.spyOn(User, "findOne").mockResolvedValue(null);
 
       const newEmail = "new@example.com";
@@ -128,10 +126,9 @@ describe("Profile Endpoints", () => {
     });
   });
 
-  // Test: DELETE /auth/profile
+  // Tests the profile DELETE endpoint
   describe("DELETE /auth/profile", () => {
     it("should delete user account and all associated data", async () => {
-      // Mock User.findByPk to return a user with destroy method
       const mockUserDestroy = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(User, "findByPk").mockResolvedValue({
         userId: mockUser.userId,
@@ -171,18 +168,21 @@ describe("Profile Endpoints", () => {
         })
       );
 
+      // Verify Habit.destroy was called with correct userId
       expect(mockHabitDestroy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: mockUser.userId },
         })
       );
 
+      // Verify QuestionnaireResponse.destroy was called with correct userId
       expect(mockQuestionnaireDestroy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: mockUser.userId },
         })
       );
 
+      // Verify User.destroy was called
       expect(mockUserDestroy).toHaveBeenCalled();
     });
 
