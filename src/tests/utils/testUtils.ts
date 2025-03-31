@@ -2,9 +2,10 @@ import request from "supertest";
 import jwt from "jsonwebtoken";
 import app from "../../server";
 import bcrypt from "bcryptjs";
-import { Response } from "supertest";
 
-// Mock user for testing
+/* -- Mock Data -- */
+
+// Mock user
 export const mockUser = {
   userId: 1,
   email: "test@example.com",
@@ -12,7 +13,7 @@ export const mockUser = {
   lastName: "User",
 };
 
-// Mock guest user for testing
+// Mock guest user
 export const mockGuestUser = {
   userId: 5555,
   role: "guest",
@@ -25,7 +26,7 @@ export const mockQuestionnaireData = {
   currentQuestion: 1,
 };
 
-// Mock habits for testing
+// Mock habits
 export const mockHabits = [
   {
     habitId: 1,
@@ -47,7 +48,7 @@ export const mockHabits = [
   },
 ];
 
-// Mock logs for testing
+// Mock habit logs
 export const mockLogs = [
   {
     logId: 1,
@@ -73,14 +74,16 @@ export const mockLogs = [
   },
 ];
 
-// Standard date parameters for testing
+// Mock date parameters
 export const standardDateParams = {
   year: 2023,
   month: "June",
   day: 15,
 };
 
-// Generate authentication token for tests
+/* -- Test Utilities -- */
+
+// Generate mock authentication token
 export const generateToken = (userId = mockUser.userId, role?: string) => {
   const payload: any = { userId };
   if (role) {
@@ -91,7 +94,7 @@ export const generateToken = (userId = mockUser.userId, role?: string) => {
   });
 };
 
-// Make authenticated request with token
+// Make mock authenticated request with mock token
 export const makeAuthenticatedRequest = (
   method: "get" | "post" | "put" | "delete",
   url: string,
@@ -101,6 +104,7 @@ export const makeAuthenticatedRequest = (
 ) => {
   const token = generateToken(userId, role);
 
+  // Switch case to handle different HTTP methods
   switch (method.toLowerCase()) {
     case "get":
       return request(app)
@@ -125,7 +129,7 @@ export const makeAuthenticatedRequest = (
   }
 };
 
-// Make guest request with token
+// Make mock guest request with mock token
 export const makeGuestRequest = (
   method: "get" | "post" | "put" | "delete",
   url: string,
@@ -135,7 +139,7 @@ export const makeGuestRequest = (
   return makeAuthenticatedRequest(method, url, body, userId, "guest");
 };
 
-// Make unauthenticated request (no token)
+// Make mock unauthenticated request (no token)
 export const makeUnauthenticatedRequest = (
   method: "get" | "post" | "put" | "delete",
   url: string,
@@ -155,7 +159,7 @@ export const makeUnauthenticatedRequest = (
   }
 };
 
-// Utility to check if response has a valid auth cookie
+// Check if mock response has a valid auth cookie
 export const expectAuthCookie = (res: any) => {
   const cookies = res.headers["set-cookie"];
   expect(Array.isArray(cookies)).toBe(true);
@@ -166,7 +170,7 @@ export const expectAuthCookie = (res: any) => {
   ).toBe(true);
 };
 
-// Utility to check if response has a cleared auth cookie (logout)
+// Check if mock response has a cleared auth cookie on logout
 export const expectClearedAuthCookie = (res: any) => {
   const cookies = res.headers["set-cookie"];
   expect(Array.isArray(cookies)).toBe(true);
@@ -177,9 +181,9 @@ export const expectClearedAuthCookie = (res: any) => {
   ).toBe(true);
 };
 
-// Utility to check log properties
+// Check if mock habit log has the correct properties
 export const expectLogProperties = (log: any) => {
-  // Check for either logId or id (depending on the response format)
+  // Check if the log has the correct properties
   expect(log).toHaveProperty(log.logId !== undefined ? "logId" : "id");
   expect(log).toHaveProperty("habitId");
   expect(log).toHaveProperty("date");
@@ -187,12 +191,12 @@ export const expectLogProperties = (log: any) => {
   expect(log).toHaveProperty("habitName");
 };
 
-// Utility to generate hashed password for tests
+// Generate mock hashed password
 export const generateHashedPassword = async (password: string) => {
   return await bcrypt.hash(password, 10);
 };
 
-// Utility to check questionnaire response properties
+// Check if mock questionnaire response has the correct properties
 export const expectQuestionnaireProperties = (response: any) => {
   expect(response).toHaveProperty("responses");
   expect(response).toHaveProperty("totalScore");
