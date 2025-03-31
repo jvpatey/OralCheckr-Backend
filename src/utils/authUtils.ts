@@ -68,40 +68,52 @@ export const createGuestUser = async (): Promise<User> => {
   return guestUser;
 };
 
-/* -- Cookie Configuration Function -- */
-export const getCookieConfig = (maxAge?: number) => {
-  // Check if the environment is production
-  const isProduction = process.env.NODE_ENV === "production";
-  const isTest = process.env.NODE_ENV === "test";
+/* -- Cookie Configuration Types -- */
+type CookieSameSite = "strict" | "lax" | "none";
 
-  // Base configuration for all environments
-  const config: any = {
+interface CookieConfig {
+  httpOnly: boolean;
+  secure: boolean;
+  path: string;
+  sameSite: CookieSameSite;
+  domain?: string;
+  maxAge?: number;
+}
+
+/* -- Environment-specific cookie configurations -- */
+const getEnvironmentConfig = (): Pick<CookieConfig, "secure" | "sameSite"> => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // Production environment configuration
+  if (isProduction) {
+    return {
+      secure: true,
+      sameSite: "none" as const,
+    };
+  }
+
+  // Both test and development environments use the same configuration
+  return {
+    secure: false,
+    sameSite: "lax" as const,
+  };
+};
+
+/* -- Cookie Configuration Function -- */
+export const getCookieConfig = (maxAge?: number): CookieConfig => {
+  // Get environment-specific settings
+  const envConfig = getEnvironmentConfig();
+
+  // Build base configuration
+  const config: CookieConfig = {
     httpOnly: true,
-    secure: isProduction, // Only set secure in production
     path: "/",
-    sameSite: isProduction ? ("none" as const) : ("lax" as const),
+    ...envConfig,
   };
 
-  // Test environment configuration (local development)
-  if (isTest) {
-    config.secure = false;
-    config.sameSite = "lax";
-  }
-
-  // Development environment configuration (local development)
-  if (!isProduction && !isTest) {
-    config.secure = false;
-    config.sameSite = "lax";
-  }
-
-  // Production environment configuration (production)
-  if (isProduction && process.env.COOKIE_DOMAIN) {
+  // Add domain in production if specified
+  if (process.env.NODE_ENV === "production" && process.env.COOKIE_DOMAIN) {
     config.domain = process.env.COOKIE_DOMAIN;
-  }
-
-  // Always ensure secure is true if sameSite is 'none'
-  if (config.sameSite === "none") {
-    config.secure = true;
   }
 
   // Add maxAge if provided
