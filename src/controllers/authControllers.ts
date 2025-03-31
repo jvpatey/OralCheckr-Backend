@@ -7,96 +7,16 @@ import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
 import { OAuth2Client } from "google-auth-library";
+import {
+  generateAccessToken,
+  validatePassword,
+  createGuestUser,
+  getCookieConfig,
+  generateGuestAccessToken,
+} from "../utils/authUtils";
 
-const generateAccessToken = (userId: number): string => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-    expiresIn: "7d",
-  });
-};
-
-/* -- Password Validation -- */
-const validatePassword = (password: string): string | null => {
-  const requirements = [
-    { regex: /.{8,}/, message: "Password must be at least 8 characters" },
-    { regex: /[A-Z]/, message: "Must contain at least one uppercase letter" },
-    { regex: /[a-z]/, message: "Must contain at least one lowercase letter" },
-    { regex: /\d/, message: "Must contain at least one digit" },
-    {
-      regex: /[!@#$%^&*(),.?":{}|<>]/,
-      message: "Must contain at least one special character",
-    },
-  ];
-
-  const errors = requirements
-    .filter((req) => !req.regex.test(password))
-    .map((req) => req.message);
-  return errors.length > 0 ? errors.join(", ") : null;
-};
-
-/* -- Guest User Creation -- */
-const createGuestUser = async (): Promise<User> => {
-  console.log("Creating guest user...");
-  const guestEmail = `guest_${Date.now()}_${Math.floor(
-    Math.random() * 10000
-  )}@guest.com`;
-  // Use a default guest password
-  const guestPassword = "guestPassword!";
-  // Hash the guest password
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(guestPassword, salt);
-  // Create the new guest user
-  const guestUser = await User.create({
-    firstName: "Guest",
-    lastName: "User",
-    email: guestEmail,
-    password: hashedPassword,
-    isGuest: true,
-  });
-  console.log(`Guest user created: ${guestUser.email}`);
-  return guestUser;
-};
-
-// Cookie configuration based on environment
-const getCookieConfig = (maxAge?: number) => {
-  const isProduction = process.env.NODE_ENV === "production";
-  const isTest = process.env.NODE_ENV === "test";
-
-  // Base configuration
-  const config: any = {
-    httpOnly: true,
-    secure: isProduction, // Only set secure in production
-    path: "/",
-    sameSite: isProduction ? ("none" as const) : ("lax" as const),
-  };
-
-  // Test environment configuration
-  if (isTest) {
-    config.secure = false;
-    config.sameSite = "lax";
-  }
-
-  // Development environment configuration
-  if (!isProduction && !isTest) {
-    config.secure = false;
-    config.sameSite = "lax";
-  }
-
-  if (isProduction && process.env.COOKIE_DOMAIN) {
-    config.domain = process.env.COOKIE_DOMAIN;
-  }
-
-  if (config.sameSite === "none") {
-    config.secure = true;
-  }
-
-  // Add maxAge if provided
-  if (maxAge) {
-    config.maxAge = maxAge;
-  }
-
-  console.log(`Cookie config: ${JSON.stringify(config)}`);
-  return config;
-};
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /* -- Register a user -- */
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -202,16 +122,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 /* -- Guest Login -- */
-const generateGuestAccessToken = (guestUserId: number): string => {
-  return jwt.sign(
-    { userId: guestUserId, role: "guest" },
-    process.env.JWT_SECRET as string,
-    {
-      expiresIn: "1d",
-    }
-  );
-};
-
 export const guestLogin = async (
   req: Request,
   res: Response
@@ -609,9 +519,6 @@ export const deleteAccount = async (
     res.status(500).json({ error: "Failed to delete account" });
   }
 };
-
-// Initialize Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /* -- Google Login -- */
 export const googleLogin = async (
