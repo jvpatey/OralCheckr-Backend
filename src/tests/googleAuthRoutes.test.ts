@@ -103,7 +103,10 @@ describe("Google Auth Endpoints", () => {
       const res = await request(app).post("/auth/google-login").send({});
 
       expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error", "Token is required");
+      expect(res.body).toHaveProperty(
+        "error",
+        "Token or credential is required"
+      );
     });
 
     it("should return 500 for invalid token", async () => {
