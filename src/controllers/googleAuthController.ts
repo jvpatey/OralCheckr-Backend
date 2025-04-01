@@ -15,18 +15,31 @@ export const googleLogin = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log("Google login request received:", {
+      body: req.body,
+      headers: {
+        origin: req.headers.origin,
+        host: req.headers.host,
+        contentType: req.headers["content-type"],
+      },
+    });
+
     // Get the token from the request body
-    const { token } = req.body;
+    const { token, credential } = req.body;
+    const authToken = token || credential;
 
     // Check if the token is provided
-    if (!token) {
-      res.status(400).json({ error: "Token is required" });
+    if (!authToken) {
+      console.log("Google login failed: No token or credential provided");
+      res.status(400).json({ error: "Token or credential is required" });
       return;
     }
 
+    console.log("Attempting to verify Google token");
+
     // Verify the Google token
     const ticket = await client.verifyIdToken({
-      idToken: token,
+      idToken: authToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
@@ -35,9 +48,15 @@ export const googleLogin = async (
 
     // Check if the payload is valid
     if (!payload) {
+      console.log("Google login failed: Invalid token payload");
       res.status(400).json({ error: "Invalid token" });
       return;
     }
+
+    console.log("Google token verified successfully:", {
+      sub: payload.sub,
+      email: payload.email,
+    });
 
     // Check if user exists by googleId or email
     let user = await User.findOne({
@@ -87,8 +106,12 @@ export const googleLogin = async (
         isGuest: user.isGuest,
       },
     });
-  } catch (error) {
-    console.error("Google login error:", error);
+  } catch (error: any) {
+    console.error("Google login error details:", {
+      errorName: error.name,
+      errorMessage: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Failed to authenticate with Google" });
   }
 };

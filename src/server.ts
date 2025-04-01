@@ -80,6 +80,12 @@ app.use(express.json());
 // Parse URL-encoded request bodies (form submissions)
 app.use(express.urlencoded({ extended: false }));
 
+// Add Cross-Origin headers for Google Auth
+app.use((req, res, next) => {
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  next();
+});
+
 // Debug logging for auth requests (development only)
 if (process.env.NODE_ENV === "development") {
   app.use((req, res, next) => {

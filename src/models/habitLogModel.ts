@@ -5,6 +5,8 @@ import { getIntegerType, DATE } from "../db/dataTypes";
 
 /* -- Habit Log Model -- */
 
+// Interfaces
+
 interface HabitLogAttributes {
   logId: number;
   habitId: number;
