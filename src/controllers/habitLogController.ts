@@ -13,7 +13,8 @@ import {
 } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 
-// Use UTC timezone for consistent date handling
+/* -- Habit Log Controller -- */
+
 const TIMEZONE = "UTC";
 
 /* -- Get logs for a specific habit -- */
@@ -22,9 +23,11 @@ export const getHabitLogs = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Get the user's ID and habit ID from the request
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.habitId);
 
+    // Check if the user is authenticated
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       console.log("Habit logs fetch failed: User not authenticated");
@@ -35,15 +38,16 @@ export const getHabitLogs = async (
     const { year, month } = req.query;
     const dateFilter: any = {};
 
+    // Check if the year and month are provided
     if (year && month) {
       try {
-        // Parse the date string to get a date object for the first day of the month
         const localMonthDate = parse(
           `${month} 1, ${year}`,
           "MMMM d, yyyy",
           new Date()
         );
 
+        // Check if the date is valid
         if (!isValid(localMonthDate)) {
           res.status(400).json({
             error: "Invalid date format",
@@ -53,12 +57,12 @@ export const getHabitLogs = async (
           return;
         }
 
-        // Convert to UTC to ensure consistent timezone handling
+        // Convert to UTC and get the start and end dates of the month
         const monthDate = toZonedTime(localMonthDate, TIMEZONE);
-
         const startDate = startOfMonth(monthDate);
         const endDate = endOfMonth(monthDate);
 
+        // Set the date filter
         dateFilter.date = {
           [Op.between]: [startDate, endDate],
         };
@@ -73,6 +77,7 @@ export const getHabitLogs = async (
       }
     }
 
+    // Get the logs for the habit
     const logs = await HabitLog.findAll({
       where: {
         habitId,
@@ -84,7 +89,7 @@ export const getHabitLogs = async (
           model: Habit,
           as: "habit",
           attributes: ["name", "count"],
-          where: { userId }, // Ensures the habit belongs to the user
+          where: { userId },
         },
       ],
       order: [["date", "DESC"]],
@@ -94,17 +99,16 @@ export const getHabitLogs = async (
       `Habit logs fetched successfully for user: ${userId}, habit: ${habitId}. Total logs: ${logs.length}`
     );
 
-    // Transform logs to flat structure only
+    // Convert the logs to a flat structure
     const transformedLogs = logs.map((log) => {
-      // Convert the date to a proper UTC date string
-      // This ensures consistent date handling regardless of local timezone
+      // Convert the date to a UTC date string
       const isoDate = formatInTimeZone(
         new Date(log.date),
         TIMEZONE,
         "yyyy-MM-dd"
       );
 
-      // In tests, log is often a plain object, so we need to handle both cases
+      // Get the habit name
       const habitName =
         typeof log.get === "function"
           ? (log.get("habit") as any)?.name
@@ -119,6 +123,7 @@ export const getHabitLogs = async (
       };
     });
 
+    // Send a success response to the client
     res.status(200).json({ logs: transformedLogs });
   } catch (error) {
     console.error("Error fetching habit logs:", error);
@@ -132,22 +137,26 @@ export const logHabit = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Get the user's ID, habit ID, and date params
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.habitId);
     const { year, month, day } = req.body;
 
+    // Check if the user is authenticated
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       console.log("Habit log creation failed: User not authenticated");
       return;
     }
 
+    // Check if the habit ID is valid
     if (!habitId || isNaN(habitId)) {
       res.status(400).json({ error: "Invalid habit ID" });
       console.log("Habit log creation failed: Invalid habit ID");
       return;
     }
 
+    // Check if the year, month, and day are provided
     if (!year || !month || !day) {
       res.status(400).json({
         error: "Year, month, and day are required",
@@ -157,15 +166,16 @@ export const logHabit = async (
       return;
     }
 
+    // Parse the date using date-fns
     let parsedDate;
     try {
-      // Parse the date using date-fns
       const localDate = parse(
         `${month} ${day}, ${year}`,
         "MMMM d, yyyy",
         new Date()
       );
 
+      // Check if the date is valid
       if (!isValid(localDate)) {
         res.status(400).json({
           error: "Invalid date values provided",
@@ -178,7 +188,7 @@ export const logHabit = async (
       // Convert to UTC to ensure consistent timezone handling
       parsedDate = toZonedTime(localDate, TIMEZONE);
 
-      // Validate the date is not in the future
+      // Ensure the date is not in the future
       if (isFuture(parsedDate)) {
         res.status(400).json({
           error: "Cannot log habits for future dates",
@@ -199,12 +209,13 @@ export const logHabit = async (
     }
 
     try {
-      // Find the habit and verify ownership
+      // Get the habit
       const habit = await Habit.findOne({
         where: { habitId, userId },
         attributes: ["count", "name"],
       });
 
+      // Check if the habit exists
       if (!habit) {
         res.status(404).json({
           error: "Habit not found or unauthorized",
@@ -222,6 +233,7 @@ export const logHabit = async (
         where: { habitId, userId, date: parsedDate },
       });
 
+      // Get the current count
       const currentCount = existingLog?.count || 0;
 
       // Check if incrementing would exceed max count
@@ -251,9 +263,10 @@ export const logHabit = async (
         }, count increased from ${currentCount} to ${currentCount + 1}`
       );
 
-      // Return only flat format with consistent timezone handling
+      // Format the date
       const isoDate = formatInTimeZone(parsedDate, TIMEZONE, "yyyy-MM-dd");
 
+      // Send a success response to the client
       res.status(200).json({
         log: {
           id: log.logId,
@@ -285,16 +298,19 @@ export const deleteHabitLog = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Get the user's ID, habit ID, and date params
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.habitId);
     const { year, month, day } = req.body;
 
+    // Check if the user is authenticated
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
       console.log("Habit log deletion failed: User not authenticated");
       return;
     }
 
+    // Check if the year, month, and day are provided
     if (!year || !month || !day) {
       res.status(400).json({
         error: "Year, month, and day are required",
@@ -304,15 +320,16 @@ export const deleteHabitLog = async (
       return;
     }
 
+    // Parse the date using date-fns
     let parsedDate;
     try {
-      // Parse the date using date-fns
       parsedDate = parse(
         `${month} ${day}, ${year}`,
         "MMMM d, yyyy",
         new Date()
       );
 
+      // Check if the date is valid
       if (!isValid(parsedDate)) {
         res.status(400).json({
           error: "Invalid date values provided",
@@ -332,29 +349,32 @@ export const deleteHabitLog = async (
     }
 
     try {
-      // Find the log for this date
+      // Get the log
       const log = await HabitLog.findOne({
         where: { habitId, userId, date: parsedDate },
       });
 
+      // Check if the log exists
       if (!log) {
         res.status(404).json({ error: "Habit log not found or unauthorized" });
         console.log("Habit log deletion failed: Log not found or unauthorized");
         return;
       }
 
+      // Get the updated count
       let updatedCount = 0;
+      // Check if the log was deleted
       let logDeleted = false;
 
+      // Check if the count is 1 - if so, delete the log entirely
       if (log.count <= 1) {
-        // If count is 1, delete the log entirely
         await log.destroy();
         logDeleted = true;
         console.log(
           `Habit log deleted successfully for user: ${userId}, habit: ${habitId}`
         );
       } else {
-        // Otherwise decrement the count
+        // Decrement the count
         log.count -= 1;
         await log.save();
         updatedCount = log.count;
@@ -363,9 +383,10 @@ export const deleteHabitLog = async (
         );
       }
 
-      // Return only flat format
+      // Format the date
       const isoDate = format(parsedDate, "yyyy-MM-dd");
 
+      // Send a success response to the client
       res.status(200).json({
         log: logDeleted
           ? null

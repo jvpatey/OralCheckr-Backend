@@ -7,14 +7,18 @@ import {
   makeUnauthenticatedRequest,
 } from "./utils/testUtils";
 
+/* -- Habit Routes Tests -- */
+
+// JWT secret for tests
 process.env.JWT_SECRET = "testsecret";
 
+/* -- Initialize test suite for habit routes -- */
 describe("Habit Routes", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // GET /habits
+  // Tests for the habit GET endpoint
   describe("GET /habits", () => {
     it("should return all habits for the authenticated user", async () => {
       jest.spyOn(Habit, "findAll").mockResolvedValue(mockHabits as any);
@@ -38,7 +42,7 @@ describe("Habit Routes", () => {
     });
   });
 
-  // POST /habits
+  // Tests the habit POST endpoint
   describe("POST /habits", () => {
     it("should create a new habit successfully", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
@@ -99,7 +103,7 @@ describe("Habit Routes", () => {
     });
   });
 
-  // PUT /habits/:id
+  // Tests the habit PUT endpoint
   describe("PUT /habits/:id", () => {
     it("should update a habit successfully", async () => {
       jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
@@ -204,7 +208,7 @@ describe("Habit Routes", () => {
     });
   });
 
-  // DELETE /habits/:id
+  // Tests the habit DELETE endpoint
   describe("DELETE /habits/:id", () => {
     it("should delete a habit successfully", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue({
@@ -229,7 +233,7 @@ describe("Habit Routes", () => {
     });
   });
 
-  // DELETE /habits
+  // Tests the habit DELETE all endpoint
   describe("DELETE /habits", () => {
     it("should delete all habits and logs for the user", async () => {
       jest.spyOn(Habit, "destroy").mockResolvedValue(2 as any);
@@ -256,7 +260,7 @@ describe("Habit Routes", () => {
     });
   });
 
-  // Common tests for all endpoints
+  // Tests the common behavior of the habit routes
   describe("Common Behavior", () => {
     it("should require authentication for all endpoints", async () => {
       // GET /habits
@@ -292,6 +296,7 @@ describe("Habit Routes", () => {
       expect(deleteAllRes.status).toBe(401);
     });
 
+    // Tests the database error handling
     it("should handle database errors gracefully", async () => {
       // GET /habits
       jest
@@ -344,6 +349,7 @@ describe("Habit Routes", () => {
       expect(deleteAllRes.body).toHaveProperty("error");
     });
 
+    // Tests the authorization and access control
     it("should enforce proper authorization and access control", async () => {
       // Prevent accessing another user's habit
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
@@ -362,6 +368,7 @@ describe("Habit Routes", () => {
   });
 });
 
+// Close the database connection after all tests
 afterAll(async () => {
   await sequelize.close();
 });

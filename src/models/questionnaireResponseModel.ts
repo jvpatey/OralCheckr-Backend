@@ -3,7 +3,10 @@ import sequelize from "../db/db";
 import User from "./userModel";
 import { getIntegerType } from "../db/dataTypes";
 
-/* -- Interface for questionnaire response attributes -- */
+/* -- Questionnaire Response Model -- */
+
+// Interfaces
+
 interface ResponseAttributes {
   id?: number;
   userId: number; // foreign key
@@ -12,15 +15,15 @@ interface ResponseAttributes {
   currentQuestion?: number;
 }
 
-/* -- Interface for creating an new questionnaire response -- */
 interface ResponseCreationAttributes
   extends Optional<ResponseAttributes, "id" | "currentQuestion"> {}
 
-/* -- QuestionnaireResponse model -- */
+/* -- QuestionnaireResponse Model Definition -- */
 class QuestionnaireResponse
   extends Model<ResponseAttributes, ResponseCreationAttributes>
   implements ResponseAttributes
 {
+  // Define the attributes
   public id!: number;
   public userId!: number;
   public responses!: Record<number, number | number[]>;
@@ -73,7 +76,11 @@ QuestionnaireResponse.init(
 );
 
 /* -- Associations -- */
+
+// A user has one questionnaire response
 User.hasOne(QuestionnaireResponse, { foreignKey: "userId", as: "responses" });
+
+// A questionnaire response belongs to a user
 QuestionnaireResponse.belongsTo(User, { foreignKey: "userId" });
 
 export default QuestionnaireResponse;

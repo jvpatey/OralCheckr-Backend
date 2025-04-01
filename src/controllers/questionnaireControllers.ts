@@ -4,6 +4,8 @@ import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 
+/* -- Questionnaire Controller -- */
+
 interface DecodedToken {
   userId: number;
 }
@@ -14,7 +16,7 @@ export const saveResponse = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Extract JWT token from cookies
+    // Get the JWT token from the cookies
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
@@ -32,6 +34,7 @@ export const saveResponse = async (
     // Get responses and totalScore from request body
     const { responses, totalScore } = req.body;
 
+    // Check if the responses and totalScore are provided
     if (!responses || totalScore === undefined) {
       res.status(400).json({ error: "Missing required fields" });
       console.log(
@@ -40,7 +43,7 @@ export const saveResponse = async (
       return;
     }
 
-    // Ensure the user exists
+    // Get the user
     const user = await User.findByPk(userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
@@ -95,7 +98,7 @@ export const getResponseByUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Extract JWT token from cookies
+    // Get the JWT token from the cookies
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
@@ -124,6 +127,7 @@ export const getResponseByUser = async (
       ],
     });
 
+    // Check if the response record exists
     if (!responseRecord) {
       res.status(404).json({ error: "No response found for this user" });
       console.log(
@@ -132,6 +136,7 @@ export const getResponseByUser = async (
       return;
     }
 
+    // Send a success response to the client
     res.status(200).json(responseRecord);
     console.log(
       `Questionnaire responses get successful: Fetched response for user: ${userId}`
@@ -150,19 +155,25 @@ export const updateProgress = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Get the JWT token from the cookies
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
       console.log("Questionnaire progress update failed: No token provided");
       return;
     }
+
+    // Verify and decode JWT
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
     ) as DecodedToken;
     const userId = decoded.userId;
+
+    // Get the responses and current question from the request body
     const { responses, currentQuestion } = req.body;
 
+    // Check if the responses and current question are provided
     if (responses === undefined || currentQuestion === undefined) {
       res.status(400).json({ error: "Missing required fields" });
       console.log(
@@ -218,12 +229,15 @@ export const getProgress = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Get the JWT token from the cookies
     const token = req.cookies.accessToken;
     if (!token) {
       res.status(401).json({ error: "Unauthorized - No token provided" });
       console.log("Questionnaire progress get failed: No token provided");
       return;
     }
+
+    // Verify and decode JWT
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
@@ -242,6 +256,7 @@ export const getProgress = async (
       return;
     }
 
+    // Send a success response to the client
     res.status(200).json({
       responses: responseRecord.responses,
       currentQuestion: responseRecord.currentQuestion,
@@ -270,10 +285,13 @@ export const saveGuestQuestionnaireResponse = async (
       return;
     }
 
+    // Get the responses and total score from the request body
     const { responses, totalScore } = req.body;
-    // Use the unique numeric guest userId from the token
+
+    // Get the guest user ID
     const guestUserId = req.user.userId as number;
 
+    // Create a new questionnaire response
     await QuestionnaireResponse.create({
       userId: guestUserId,
       responses,
@@ -295,6 +313,7 @@ export const deleteQuestionnaireData = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Check if the user is authenticated
     if (!req.user?.userId) {
       res.status(401).json({ error: "Unauthorized: No user found" });
       console.log("Questionnaire deletion failed: No user found");
@@ -306,6 +325,7 @@ export const deleteQuestionnaireData = async (
       where: { userId: req.user.userId },
     });
 
+    // Check if the questionnaire response exists
     if (!response) {
       res
         .status(404)
@@ -316,10 +336,13 @@ export const deleteQuestionnaireData = async (
       return;
     }
 
+    // Delete the questionnaire response
     await response.destroy();
     console.log(
       `Questionnaire data deleted successfully for user ${req.user.userId}`
     );
+
+    // Send a success response to the client
     res
       .status(200)
       .json({ message: "Questionnaire data deleted successfully" });

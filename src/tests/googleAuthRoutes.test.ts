@@ -5,6 +5,8 @@ import request from "supertest";
 import app from "../server";
 import { mockUser } from "./utils/testUtils";
 
+/* -- Google Auth Routes Tests -- */
+
 // Mock OAuth2Client
 jest.mock("google-auth-library", () => {
   return {
@@ -33,6 +35,7 @@ jest.mock("google-auth-library", () => {
 process.env.JWT_SECRET = "testsecret";
 process.env.GOOGLE_CLIENT_ID = "test_client_id";
 
+/* -- Initialize test suite for google auth routes -- */
 describe("Google Auth Endpoints", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -42,13 +45,13 @@ describe("Google Auth Endpoints", () => {
     await sequelize.close();
   });
 
-  // Test: POST /auth/google-login
+  // Test for google login endpoint
   describe("POST /auth/google-login", () => {
     it("should login successfully with valid Google credentials for new user", async () => {
-      // Mock User.findOne to return no user (new user)
+      // Mock that no existing user is found
       jest.spyOn(User, "findOne").mockResolvedValue(null);
 
-      // Mock User.create to return a new user
+      // Mock user creation
       jest.spyOn(User, "create").mockResolvedValue({
         userId: 999,
         email: "google@example.com",
@@ -57,13 +60,14 @@ describe("Google Auth Endpoints", () => {
         googleId: "google_id_123",
       } as any);
 
+      // Make request
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "valid_token" });
+        .send({ token: "valid_token" });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("message", "Google login successful");
-      expect(res.body).toHaveProperty("userId", 999);
+      expect(res.body.user).toHaveProperty("userId", 999);
 
       // Should have a cookie set
       expect(res.headers["set-cookie"]).toBeDefined();
@@ -71,41 +75,50 @@ describe("Google Auth Endpoints", () => {
     });
 
     it("should login successfully and update googleId for existing user", async () => {
-      // Mock User.findOne to return an existing user without googleId
-      const mockSave = jest.fn().mockResolvedValue(undefined);
+      const mockUpdate = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(User, "findOne").mockResolvedValue({
         userId: mockUser.userId,
         email: "google@example.com",
         firstName: "Test",
         lastName: "User",
         googleId: undefined,
-        save: mockSave,
+        avatar: undefined,
+        update: mockUpdate,
       } as any);
 
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "valid_token" });
+        .send({ token: "valid_token" });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("message", "Google login successful");
-      expect(res.body).toHaveProperty("userId", mockUser.userId);
-      expect(mockSave).toHaveBeenCalled();
+      expect(res.body.user).toHaveProperty("userId", mockUser.userId);
+      expect(mockUpdate).toHaveBeenCalledWith({
+        googleId: "google_id_123",
+        avatar: undefined,
+      });
     });
 
-    it("should return 400 for missing credential", async () => {
+    it("should return 400 for missing token", async () => {
       const res = await request(app).post("/auth/google-login").send({});
 
       expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty("error", "Google credential is required");
+      expect(res.body).toHaveProperty(
+        "error",
+        "Token or credential is required"
+      );
     });
 
     it("should return 500 for invalid token", async () => {
       const res = await request(app)
         .post("/auth/google-login")
-        .send({ credential: "invalid_token" });
+        .send({ token: "invalid_token" });
 
       expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty("error", "Google authentication failed");
+      expect(res.body).toHaveProperty(
+        "error",
+        "Failed to authenticate with Google"
+      );
     });
   });
 });

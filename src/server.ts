@@ -11,12 +11,12 @@ import habitLogRoutes from "./routes/habitLogRoutes";
 
 /* -- OralCheckr Backend Server -- */
 
-// Initialize server and load environment variables
+// Load environment variables
 dotenv.config();
 const port = process.env.PORT || 3000;
 const app = express();
 
-// Set allowed origins for CORS
+// Allowed origins for CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
@@ -24,14 +24,17 @@ const allowedOrigins = [
   "https://oralcheckr-backend.onrender.com",
 ];
 
-// Configure CORS options with credentials and headers
+// CORS options
 const corsOptions = {
+  // Allow credentials
   origin: function (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     // Filter out empty strings from allowedOrigins
     const validOrigins = allowedOrigins.filter((o) => o);
+
+    // If the origin is not allowed, return an error
     if (!origin || validOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -39,6 +42,7 @@ const corsOptions = {
       callback(new Error("Not allowed by CORS"));
     }
   },
+  // Allow credentials
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -53,6 +57,7 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
+// Log the CORS configuration
 console.log(
   `CORS configured for ${
     process.env.NODE_ENV
@@ -62,6 +67,7 @@ console.log(
 );
 
 /* -- Middleware Configuration -- */
+
 // Parse cookies from request headers
 app.use(cookieParser());
 
@@ -74,29 +80,31 @@ app.use(express.json());
 // Parse URL-encoded request bodies (form submissions)
 app.use(express.urlencoded({ extended: false }));
 
-// Debug logging for auth requests
+// Add Cross-Origin headers for Google Auth
 app.use((req, res, next) => {
-  if (req.path.startsWith("/auth")) {
-    console.log("Auth request:", {
-      path: req.path,
-      method: req.method,
-      cookies: req.cookies,
-      headers: {
-        origin: req.headers.origin,
-        cookie: req.headers.cookie || "No cookie present",
-      },
-    });
-  }
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   next();
 });
 
+// Debug logging for auth requests (development only)
+if (process.env.NODE_ENV === "development") {
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/auth")) {
+      console.log("Auth request:", {
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString(),
+        origin: req.headers.origin || "No origin",
+      });
+    }
+    next();
+  });
+}
+
 /* -- API Routes -- */
-// Health check endpoint for monitoring and Render's health checks
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", environment: process.env.NODE_ENV });
-});
-
-// Mount route modules
+}); // Render health check
 app.use("/auth", authRoutes); // Authentication & user management
 app.use("/questionnaire", questionnaireRoutes); // Questionnaire responses
 app.use("/habits", habitRoutes); // Habit management
@@ -106,6 +114,7 @@ console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
 /* -- Server Startup Function -- */
 
+// Start the server
 const startServer = async () => {
   try {
     // Only connect to database if not in test mode
@@ -131,7 +140,7 @@ const startServer = async () => {
   }
 };
 
-// Only start if not in test mode
+// Only start if not in test mode and the file is being run directly
 if (process.env.NODE_ENV !== "test" && require.main === module) {
   startServer();
 }

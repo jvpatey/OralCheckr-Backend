@@ -3,7 +3,10 @@ import bcrypt from "bcryptjs";
 import sequelize from "../db/db";
 import { getIntegerType, STRING, BOOLEAN } from "../db/dataTypes";
 
-/* -- User model attributes -- */
+/* -- User Model -- */
+
+// Interfaces
+
 interface UserAttributes {
   userId: number;
   firstName: string;
@@ -15,14 +18,13 @@ interface UserAttributes {
   googleId?: string;
 }
 
-/* -- User model creation attributes -- */
 interface UserCreationAttributes
   extends Optional<
     UserAttributes,
     "userId" | "isGuest" | "avatar" | "googleId"
   > {}
 
-/* -- User model -- */
+/* -- User Model Definition -- */
 class User
   extends Model<UserAttributes, UserCreationAttributes>
   implements UserAttributes
@@ -37,6 +39,11 @@ class User
   public googleId?: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  // Instance method to validate password
+  public async validatePassword(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.password);
+  }
 }
 
 /* -- Initialize the User model -- */
@@ -110,7 +117,6 @@ User.init(
       type: STRING(255),
       allowNull: true,
       field: "googleId",
-      unique: true,
     },
   },
   {
@@ -118,6 +124,13 @@ User.init(
     tableName: "users",
     timestamps: true,
     underscored: false,
+    indexes: [
+      {
+        unique: true,
+        fields: ["googleId"],
+        name: "users_googleId_unique",
+      },
+    ],
   }
 );
 
