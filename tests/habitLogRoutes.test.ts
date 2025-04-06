@@ -1,6 +1,6 @@
-import sequelize from "../db/db";
-import Habit from "../models/habitModel";
-import HabitLog from "../models/habitLogModel";
+import sequelize from "../src/db/db";
+import Habit from "../src/models/habitModel";
+import HabitLog from "../src/models/habitLogModel";
 import { Op } from "sequelize";
 import {
   mockUser,

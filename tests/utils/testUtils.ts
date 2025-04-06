@@ -1,6 +1,6 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
-import app from "../../server";
+import app from "../../src/server";
 import bcrypt from "bcryptjs";
 
 /* -- Mock Data -- */
