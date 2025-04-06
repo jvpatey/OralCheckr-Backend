@@ -28,7 +28,16 @@ export const getHabits = async (
     res.status(200).json(habits);
   } catch (error) {
     console.error("Error fetching habits:", error);
-    res.status(500).json({ error: "Failed to fetch habits" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to fetch habits: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to fetch habits due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -79,7 +88,26 @@ export const createHabit = async (
     res.status(201).json(habit);
   } catch (error) {
     console.error("Error creating habit:", error);
-    res.status(500).json({ error: "Failed to create habit" });
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if ("errors" in error && Array.isArray((error as any).errors)) {
+        const validationErrors = (error as any).errors
+          .map((err: any) => err.message)
+          .join(", ");
+        res
+          .status(400)
+          .json({ error: `Failed to create habit: ${validationErrors}` });
+      } else {
+        res
+          .status(400)
+          .json({ error: `Failed to create habit: ${error.message}` });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to create habit due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 

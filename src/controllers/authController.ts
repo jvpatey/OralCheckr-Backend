@@ -70,7 +70,26 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     );
   } catch (error) {
     console.error(`Registration error for ${email}:`, error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if ("errors" in error && Array.isArray((error as any).errors)) {
+        const validationErrors = (error as any).errors
+          .map((err: any) => err.message)
+          .join(", ");
+        res
+          .status(400)
+          .json({ error: `Registration failed: ${validationErrors}` });
+      } else {
+        res
+          .status(400)
+          .json({ error: `Registration failed: ${error.message}` });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Registration failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -117,7 +136,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
   } catch (error) {
     console.error(`Login error for ${email}:`, error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: `Login failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error: "Login failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -132,7 +157,13 @@ export const logout = (req: Request, res: Response): void => {
     console.log("Logout successful");
   } catch (error) {
     console.error("Logout error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: `Logout failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error: "Logout failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -166,6 +197,15 @@ export const validateUser = async (
     });
   } catch (error) {
     console.error("Error validating user:", error);
-    res.status(500).json({ error: "Failed to validate user" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `User validation failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "User validation failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };

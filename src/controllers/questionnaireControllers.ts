@@ -87,8 +87,29 @@ export const saveResponse = async (
       );
     }
   } catch (error) {
-    console.error("Error saving response:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error(
+      `Questionnaire responses save failed: Error saving response: ${error}`
+    );
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if ("errors" in error && Array.isArray((error as any).errors)) {
+        const validationErrors = (error as any).errors
+          .map((err: any) => err.message)
+          .join(", ");
+        res.status(400).json({
+          error: `Failed to save questionnaire responses: ${validationErrors}`,
+        });
+      } else {
+        res.status(400).json({
+          error: `Failed to save questionnaire responses: ${error.message}`,
+        });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to save questionnaire responses due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -145,7 +166,16 @@ export const getResponseByUser = async (
     console.error(
       `Questionnaire responses get failed: Error fetching user response: ${error}`
     );
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({
+        error: `Failed to fetch questionnaire responses: ${error.message}`,
+      });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to fetch questionnaire responses due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 

@@ -38,7 +38,16 @@ export const getProfile = async (
     res.status(200).json(user);
   } catch (error) {
     console.error("Error fetching profile:", error);
-    res.status(500).json({ error: "Failed to fetch profile" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to fetch profile: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to fetch profile due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -106,7 +115,26 @@ export const updateProfile = async (
     });
   } catch (error) {
     console.error("Error updating profile:", error);
-    res.status(500).json({ error: "Failed to update profile" });
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if ("errors" in error && Array.isArray((error as any).errors)) {
+        const validationErrors = (error as any).errors
+          .map((err: any) => err.message)
+          .join(", ");
+        res
+          .status(400)
+          .json({ error: `Failed to update profile: ${validationErrors}` });
+      } else {
+        res
+          .status(400)
+          .json({ error: `Failed to update profile: ${error.message}` });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to update profile due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -193,6 +221,15 @@ export const deleteAccount = async (
     res.status(200).json({ message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting account:", error);
-    res.status(500).json({ error: "Failed to delete account" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to delete account: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to delete account due to an unexpected error. Please try again.",
+      });
+    }
   }
 };

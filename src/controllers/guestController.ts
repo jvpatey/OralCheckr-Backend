@@ -171,6 +171,28 @@ export const convertGuestToUser = async (
     );
   } catch (error) {
     console.error("Error converting guest to user:", error);
-    res.status(500).json({ error: "Failed to convert guest account" });
+
+    // Handle Sequelize validation errors
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if ("errors" in error && Array.isArray((error as any).errors)) {
+        const validationErrors = (error as any).errors;
+        const errorMessage = validationErrors
+          .map((err: any) => err.message)
+          .join(", ");
+        res.status(400).json({
+          error: `Failed to convert guest account: ${errorMessage}`,
+        });
+      } else {
+        res.status(400).json({
+          error: `Failed to convert guest account: ${error.message}`,
+        });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to convert guest account due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
