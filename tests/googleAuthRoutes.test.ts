@@ -1,8 +1,8 @@
 import { OAuth2Client } from "google-auth-library";
-import User from "../models/userModel";
-import sequelize from "../db/db";
+import User from "../src/models/userModel";
+import sequelize from "../src/db/db";
 import request from "supertest";
-import app from "../server";
+import app from "../src/server";
 import { mockUser } from "./utils/testUtils";
 
 /* -- Google Auth Routes Tests -- */

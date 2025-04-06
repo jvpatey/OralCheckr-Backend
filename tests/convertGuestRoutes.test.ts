@@ -1,8 +1,8 @@
-import User from "../models/userModel";
-import QuestionnaireResponse from "../models/questionnaireResponseModel";
-import Habit from "../models/habitModel";
-import HabitLog from "../models/habitLogModel";
-import sequelize from "../db/db";
+import User from "../src/models/userModel";
+import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
+import Habit from "../src/models/habitModel";
+import HabitLog from "../src/models/habitLogModel";
+import sequelize from "../src/db/db";
 import {
   makeGuestRequest,
   makeUnauthenticatedRequest,

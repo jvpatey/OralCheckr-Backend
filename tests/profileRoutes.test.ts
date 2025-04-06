@@ -1,8 +1,8 @@
-import User from "../models/userModel";
-import HabitLog from "../models/habitLogModel";
-import Habit from "../models/habitModel";
-import QuestionnaireResponse from "../models/questionnaireResponseModel";
-import sequelize from "../db/db";
+import User from "../src/models/userModel";
+import HabitLog from "../src/models/habitLogModel";
+import Habit from "../src/models/habitModel";
+import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
+import sequelize from "../src/db/db";
 import {
   mockUser,
   makeAuthenticatedRequest,

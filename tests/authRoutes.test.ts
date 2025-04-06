@@ -1,7 +1,7 @@
 import request from "supertest";
-import app from "../server";
-import sequelize from "../db/db";
-import User from "../models/userModel";
+import app from "../src/server";
+import sequelize from "../src/db/db";
+import User from "../src/models/userModel";
 import {
   mockUser,
   makeAuthenticatedRequest,

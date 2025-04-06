@@ -1,5 +1,5 @@
-import QuestionnaireResponse from "../models/questionnaireResponseModel";
-import sequelize from "../db/db";
+import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
+import sequelize from "../src/db/db";
 import {
   mockUser,
   mockGuestUser,
