@@ -61,7 +61,6 @@ User.init(
       field: "firstName",
       validate: {
         notEmpty: { msg: "First name cannot be empty" },
-        isAlpha: { msg: "First name can only contain letters" },
       },
     },
     lastName: {
@@ -70,7 +69,6 @@ User.init(
       field: "lastName",
       validate: {
         notEmpty: { msg: "Last name cannot be empty" },
-        isAlpha: { msg: "Last name can only contain letters" },
       },
     },
     email: {
