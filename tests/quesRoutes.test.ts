@@ -184,8 +184,8 @@ describe("Questionnaire Endpoints", () => {
       const res = await makeAuthenticatedRequest(
         "get",
         "/questionnaire/response",
-        null,
-        8888 // User ID with no responses
+        {},
+        8888
       );
 
       expect(res.statusCode).toEqual(404);
@@ -330,8 +330,8 @@ describe("Questionnaire Endpoints", () => {
       const res = await makeAuthenticatedRequest(
         "get",
         "/questionnaire/progress",
-        null,
-        6666 // User ID with no progress
+        {},
+        6666
       );
 
       expect(res.statusCode).toEqual(404);
