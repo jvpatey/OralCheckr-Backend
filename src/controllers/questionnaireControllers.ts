@@ -134,6 +134,16 @@ export const getResponseByUser = async (
     ) as DecodedToken;
     const userId = decoded.userId;
 
+    // Get the user to check if they're a guest
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(
+        `Questionnaire responses get failed: User not found for id: ${userId}`
+      );
+      return;
+    }
+
     // Fetch the user's response
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
@@ -150,10 +160,11 @@ export const getResponseByUser = async (
 
     // Check if the response record exists
     if (!responseRecord) {
-      res.status(404).json({ error: "No response found for this user" });
+      // If no response exists yet, return 204 No Content for all users
       console.log(
-        `Questionnaire responses get failed: No response found for user: ${userId}`
+        `User ${userId}: No existing response found, returning 204 No Content`
       );
+      res.status(204).end();
       return;
     }
 
@@ -274,15 +285,26 @@ export const getProgress = async (
     ) as DecodedToken;
     const userId = decoded.userId;
 
+    // Get the user to check if they're a guest
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(
+        `Questionnaire progress get failed: User not found for id: ${userId}`
+      );
+      return;
+    }
+
     // Fetch the user's progress record
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
     });
     if (!responseRecord) {
-      res.status(404).json({ error: "No progress found for this user" });
+      // If no progress exists yet, return 204 No Content for all users
       console.log(
-        `Questionnaire progress get failed: No progress found for user: ${userId}`
+        `User ${userId}: No existing progress found, returning 204 No Content`
       );
+      res.status(204).end();
       return;
     }
 
