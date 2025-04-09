@@ -7,7 +7,7 @@ import {
   validatePassword,
   getCookieConfig,
 } from "../utils/authUtils";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import { convertGuestToUser } from "./guestController";
 import {
   DecodedToken,

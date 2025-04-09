@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import HabitLog from "../models/habitLogModel";
 import Habit from "../models/habitModel";
 import { Op } from "sequelize";

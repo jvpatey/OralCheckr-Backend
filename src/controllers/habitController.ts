@@ -1,7 +1,7 @@
 import { Response } from "express";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import {
   HabitCreationAttributes,
   HabitResponse,

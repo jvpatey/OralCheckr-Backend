@@ -5,7 +5,7 @@ import User from "../models/userModel";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import {
   createGuestUser,
   generateGuestAccessToken,

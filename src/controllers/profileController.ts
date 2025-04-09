@@ -1,6 +1,6 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import User from "../models/userModel";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import { validatePassword } from "../utils/authUtils";
 import HabitLog from "../models/habitLogModel";
 import Habit from "../models/habitModel";

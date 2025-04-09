@@ -1,4 +1,18 @@
+import { Request } from "express";
+
 /* -- Authentication Interfaces -- */
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: number;
+    role?: string;
+    email?: string;
+  };
+}
+
+export interface JWTError extends Error {
+  name: "TokenExpiredError" | "JsonWebTokenError" | "NotBeforeError";
+}
 
 export interface DecodedToken {
   userId: number;
