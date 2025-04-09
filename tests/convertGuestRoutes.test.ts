@@ -3,6 +3,7 @@ import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
 import Habit from "../src/models/habitModel";
 import HabitLog from "../src/models/habitLogModel";
 import sequelize from "../src/db/db";
+import { Model } from "sequelize";
 import {
   makeGuestRequest,
   makeUnauthenticatedRequest,
@@ -34,13 +35,13 @@ describe("Convert Guest Routes", () => {
         firstName: "Converted",
         lastName: "User",
         isGuest: false,
-      } as any);
+      } as unknown as Model);
 
       // Mock data migration
-      jest.spyOn(QuestionnaireResponse, "update").mockResolvedValue([1] as any);
-      jest.spyOn(Habit, "update").mockResolvedValue([1] as any);
-      jest.spyOn(HabitLog, "update").mockResolvedValue([1] as any);
-      jest.spyOn(User, "destroy").mockResolvedValue(1 as any);
+      jest.spyOn(QuestionnaireResponse, "update").mockResolvedValue([1]);
+      jest.spyOn(Habit, "update").mockResolvedValue([1]);
+      jest.spyOn(HabitLog, "update").mockResolvedValue([1]);
+      jest.spyOn(User, "destroy").mockResolvedValue(1);
 
       const res = await makeGuestRequest("post", "/auth/convert-guest", {
         email: "converted@example.com",
@@ -75,7 +76,7 @@ describe("Convert Guest Routes", () => {
       jest.spyOn(User, "findOne").mockResolvedValue({
         userId: 123,
         email: "existing@example.com",
-      } as any);
+      } as unknown as Model);
 
       const res = await makeGuestRequest("post", "/auth/convert-guest", {
         email: "existing@example.com",
