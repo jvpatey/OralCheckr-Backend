@@ -16,6 +16,7 @@ import {
   HabitLogResponse,
   DateParams,
   LogDeleteResponse,
+  HabitLogWithHabit,
 } from "../interfaces/habitLog";
 
 /* -- Habit Log Controller -- */
@@ -105,28 +106,27 @@ export const getHabitLogs = async (
     );
 
     // Convert the logs to a flat structure
-    const transformedLogs: HabitLogResponse[] = logs.map((log) => {
-      // Convert the date to a UTC date string
-      const isoDate = formatInTimeZone(
-        new Date(log.date),
-        TIMEZONE,
-        "yyyy-MM-dd"
-      );
+    const transformedLogs: HabitLogResponse[] = logs.map(
+      (log: HabitLogWithHabit) => {
+        // Convert the date to a UTC date string
+        const isoDate = formatInTimeZone(
+          new Date(log.date),
+          TIMEZONE,
+          "yyyy-MM-dd"
+        );
 
-      // Get the habit name
-      const habitName =
-        typeof log.get === "function"
-          ? (log.get("habit") as any)?.name
-          : (log as any).habit?.name;
+        // Get the habit name
+        const habitName = log.habit?.name || null;
 
-      return {
-        id: log.logId,
-        date: isoDate,
-        count: log.count,
-        habitId: log.habitId,
-        habitName: habitName || null,
-      };
-    });
+        return {
+          id: log.logId,
+          date: isoDate,
+          count: log.count,
+          habitId: log.habitId,
+          habitName,
+        };
+      }
+    );
 
     // Send a success response to the client
     res.status(200).json({ logs: transformedLogs });
