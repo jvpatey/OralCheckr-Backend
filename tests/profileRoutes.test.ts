@@ -3,11 +3,27 @@ import HabitLog from "../src/models/habitLogModel";
 import Habit from "../src/models/habitModel";
 import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
 import sequelize from "../src/db/db";
+import { Model } from "sequelize";
 import {
   mockUser,
   makeAuthenticatedRequest,
   makeUnauthenticatedRequest,
 } from "./utils/testUtils";
+
+type MockUserAttributes = {
+  userId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  isGuest: boolean;
+  avatar?: string;
+};
+
+type MockUserModel = Model &
+  MockUserAttributes & {
+    update?: (data: Partial<MockUserAttributes>) => Promise<void>;
+    destroy?: () => Promise<void>;
+  };
 
 /* -- Profile Routes Tests -- */
 
@@ -27,14 +43,16 @@ describe("Profile Endpoints", () => {
   // Tests the profile GET endpoint
   describe("GET /auth/profile", () => {
     it("should return user profile for authenticated user", async () => {
-      jest.spyOn(User, "findByPk").mockResolvedValue({
+      const mockUserData: MockUserModel = {
         userId: mockUser.userId,
         firstName: "Test",
         lastName: "User",
         email: "test@example.com",
         isGuest: false,
         avatar: "https://example.com/avatar.jpg",
-      } as any);
+      } as unknown as MockUserModel;
+
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockUserData);
 
       const res = await makeAuthenticatedRequest("get", "/auth/profile");
 
@@ -55,13 +73,15 @@ describe("Profile Endpoints", () => {
     });
 
     it("should return 403 if user is a guest", async () => {
-      jest.spyOn(User, "findByPk").mockResolvedValue({
+      const mockGuestData: MockUserModel = {
         userId: mockUser.userId,
         firstName: "Guest",
         lastName: "User",
         email: "guest@example.com",
         isGuest: true,
-      } as any);
+      } as unknown as MockUserModel;
+
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockGuestData);
 
       const res = await makeAuthenticatedRequest("get", "/auth/profile");
 
@@ -76,10 +96,8 @@ describe("Profile Endpoints", () => {
     it("should update avatar successfully", async () => {
       const newAvatar = "https://example.com/new-avatar.jpg";
       const mockUpdate = jest.fn().mockResolvedValue(undefined);
-      const findByPkMock = jest.spyOn(User, "findByPk");
 
-      // First call returns user with old avatar
-      findByPkMock.mockResolvedValueOnce({
+      const mockUserWithOldAvatar: MockUserModel = {
         userId: mockUser.userId,
         firstName: "Test",
         lastName: "User",
@@ -87,17 +105,16 @@ describe("Profile Endpoints", () => {
         isGuest: false,
         avatar: "https://example.com/old-avatar.jpg",
         update: mockUpdate,
-      } as any);
+      } as unknown as MockUserModel;
 
-      // Second call returns user with new avatar
-      findByPkMock.mockResolvedValueOnce({
-        userId: mockUser.userId,
-        firstName: "Test",
-        lastName: "User",
-        email: "test@example.com",
-        isGuest: false,
+      const mockUserWithNewAvatar: MockUserModel = {
+        ...mockUserWithOldAvatar,
         avatar: newAvatar,
-      } as any);
+      } as unknown as MockUserModel;
+
+      const findByPkMock = jest.spyOn(User, "findByPk");
+      findByPkMock.mockResolvedValueOnce(mockUserWithOldAvatar);
+      findByPkMock.mockResolvedValueOnce(mockUserWithNewAvatar);
 
       const res = await makeAuthenticatedRequest("put", "/auth/profile", {
         avatar: newAvatar,
@@ -111,26 +128,24 @@ describe("Profile Endpoints", () => {
     it("should update email successfully", async () => {
       const newEmail = "new@example.com";
       const mockUpdate = jest.fn().mockResolvedValue(undefined);
-      const findByPkMock = jest.spyOn(User, "findByPk");
 
-      // First call returns user with old email
-      findByPkMock.mockResolvedValueOnce({
+      const mockUserWithOldEmail: MockUserModel = {
         userId: mockUser.userId,
         firstName: "Test",
         lastName: "User",
         email: "old@example.com",
         isGuest: false,
         update: mockUpdate,
-      } as any);
+      } as unknown as MockUserModel;
 
-      // Second call returns user with new email
-      findByPkMock.mockResolvedValueOnce({
-        userId: mockUser.userId,
-        firstName: "Test",
-        lastName: "User",
+      const mockUserWithNewEmail: MockUserModel = {
+        ...mockUserWithOldEmail,
         email: newEmail,
-        isGuest: false,
-      } as any);
+      } as unknown as MockUserModel;
+
+      const findByPkMock = jest.spyOn(User, "findByPk");
+      findByPkMock.mockResolvedValueOnce(mockUserWithOldEmail);
+      findByPkMock.mockResolvedValueOnce(mockUserWithNewEmail);
 
       jest.spyOn(User, "findOne").mockResolvedValue(null);
 
@@ -155,14 +170,16 @@ describe("Profile Endpoints", () => {
   describe("DELETE /auth/profile", () => {
     it("should delete user account and all associated data", async () => {
       const mockUserDestroy = jest.fn().mockResolvedValue(undefined);
-      jest.spyOn(User, "findByPk").mockResolvedValue({
+      const mockUserData: MockUserModel = {
         userId: mockUser.userId,
         firstName: "Test",
         lastName: "User",
         email: "test@example.com",
         isGuest: false,
         destroy: mockUserDestroy,
-      } as any);
+      } as unknown as MockUserModel;
+
+      jest.spyOn(User, "findByPk").mockResolvedValue(mockUserData);
 
       // Mock HabitLog.destroy
       const mockHabitLogDestroy = jest.fn().mockResolvedValue(5);
@@ -193,21 +210,18 @@ describe("Profile Endpoints", () => {
         })
       );
 
-      // Verify Habit.destroy was called with correct userId
       expect(mockHabitDestroy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: mockUser.userId },
         })
       );
 
-      // Verify QuestionnaireResponse.destroy was called with correct userId
       expect(mockQuestionnaireDestroy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: mockUser.userId },
         })
       );
 
-      // Verify User.destroy was called
       expect(mockUserDestroy).toHaveBeenCalled();
     });
 
