@@ -3,7 +3,17 @@ import User from "../src/models/userModel";
 import sequelize from "../src/db/db";
 import request from "supertest";
 import app from "../src/server";
+import { Model } from "sequelize";
 import { mockUser } from "./utils/testUtils";
+
+interface GoogleUserAttributes {
+  userId: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  googleId?: string;
+  avatar?: string;
+}
 
 /* -- Google Auth Routes Tests -- */
 
@@ -52,13 +62,16 @@ describe("Google Auth Endpoints", () => {
       jest.spyOn(User, "findOne").mockResolvedValue(null);
 
       // Mock user creation
-      jest.spyOn(User, "create").mockResolvedValue({
+      const mockUserData: GoogleUserAttributes = {
         userId: 999,
         email: "google@example.com",
         firstName: "Google",
         lastName: "User",
         googleId: "google_id_123",
-      } as any);
+      };
+      jest
+        .spyOn(User, "create")
+        .mockResolvedValue(mockUserData as unknown as Model);
 
       // Make request
       const res = await request(app)
@@ -75,16 +88,21 @@ describe("Google Auth Endpoints", () => {
     });
 
     it("should login successfully and update googleId for existing user", async () => {
-      const mockUpdate = jest.fn().mockResolvedValue(undefined);
-      jest.spyOn(User, "findOne").mockResolvedValue({
-        userId: mockUser.userId,
-        email: "google@example.com",
-        firstName: "Test",
-        lastName: "User",
-        googleId: undefined,
-        avatar: undefined,
-        update: mockUpdate,
-      } as any);
+      const mockUpdate = jest.fn().mockResolvedValue(true);
+      const mockUserData: GoogleUserAttributes & { update: typeof mockUpdate } =
+        {
+          userId: mockUser.userId,
+          email: "google@example.com",
+          firstName: "Test",
+          lastName: "User",
+          googleId: undefined,
+          avatar: undefined,
+          update: mockUpdate,
+        };
+
+      jest
+        .spyOn(User, "findOne")
+        .mockResolvedValue(mockUserData as unknown as Model);
 
       const res = await request(app)
         .post("/auth/google-login")
