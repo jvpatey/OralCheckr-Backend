@@ -9,6 +9,11 @@ import {
 } from "../utils/authUtils";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
 import { convertGuestToUser } from "./guestController";
+import {
+  DecodedToken,
+  RegistrationError,
+  UserResponse,
+} from "../interfaces/auth";
 
 /* -- Authentication Controllers -- */
 
@@ -41,10 +46,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   if (token) {
     try {
       // Try to decode the token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
-        userId: number;
-        role?: string;
-      };
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as DecodedToken;
 
       // If this is a guest token, redirect to the guest conversion flow
       if (decoded.role === "guest") {
@@ -107,9 +112,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     console.error(`Registration error for ${email}:`, error);
     if (error instanceof Error) {
       // Check if it's a Sequelize validation error
-      if ("errors" in error && Array.isArray((error as any).errors)) {
-        const validationErrors = (error as any).errors
-          .map((err: any) => err.message)
+      const registrationError = error as RegistrationError;
+      if (registrationError.errors && Array.isArray(registrationError.errors)) {
+        const validationErrors = registrationError.errors
+          .map((err) => err.message)
           .join(", ");
         res
           .status(400)
@@ -220,16 +226,16 @@ export const validateUser = async (
     }
 
     // Send a success response to the client
-    res.status(200).json({
-      user: {
-        userId: user.userId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        avatar: user.avatar,
-        isGuest: user.isGuest,
-      },
-    });
+    const userResponse: UserResponse = {
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+      isGuest: user.isGuest,
+    };
+
+    res.status(200).json({ user: userResponse });
   } catch (error) {
     console.error("Error validating user:", error);
     if (error instanceof Error) {
