@@ -12,6 +12,12 @@ import {
   getCookieConfig,
   validatePassword,
 } from "../utils/authUtils";
+import {
+  GuestLoginResponse,
+  GuestConversionResponse,
+  GuestConversionError,
+} from "../interfaces/guest";
+import { UserResponse } from "../interfaces/auth";
 
 /* -- Guest User Controllers -- */
 
@@ -32,12 +38,15 @@ export const guestLogin = async (
       getCookieConfig(24 * 60 * 60 * 1000)
     );
 
-    // Send a success response to the client
-    res.status(200).json({
+    // Create success response
+    const response: GuestLoginResponse = {
       message: "Guest login successful",
       userId: guestUser.userId,
       role: "guest",
-    });
+    };
+
+    // Send a success response to the client
+    res.status(200).json(response);
     console.log(
       `Guest login successful: Guest user ${guestUser.email} created with ID ${guestUser.userId}`
     );
@@ -217,22 +226,28 @@ export const convertGuestToUser = async (
       getCookieConfig(7 * 24 * 60 * 60 * 1000)
     ); // 7 days
 
-    // Return the new user details (excluding the password).
-    res.status(200).json({
+    // Create user response object
+    const userResponse: UserResponse = {
+      userId: newUser.userId,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      email: newUser.email,
+      isGuest: false,
+    };
+
+    // Create success response
+    const response: GuestConversionResponse = {
       message: "Guest account successfully converted to permanent account",
-      user: {
-        userId: newUser.userId,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        email: newUser.email,
-        isGuest: false,
-      },
+      user: userResponse,
       dataMigrated: {
         questionnaires: questionnaireCount,
         habits: habitCount,
         habitLogs: logCount,
       },
-    });
+    };
+
+    // Return the new user details
+    res.status(200).json(response);
     console.log(
       `Guest conversion completed: User ${newUser.email} (ID: ${newUser.userId}) with ${questionnaireCount} questionnaires, ${habitCount} habits and ${logCount} logs`
     );
@@ -241,11 +256,11 @@ export const convertGuestToUser = async (
 
     // Handle Sequelize validation errors
     if (error instanceof Error) {
-      // Check if it's a Sequelize validation error
-      if ("errors" in error && Array.isArray((error as any).errors)) {
-        const validationErrors = (error as any).errors;
+      const conversionError = error as GuestConversionError;
+      if (conversionError.errors && Array.isArray(conversionError.errors)) {
+        const validationErrors = conversionError.errors;
         const errorMessage = validationErrors
-          .map((err: any) => err.message)
+          .map((err) => err.message)
           .join(", ");
         res.status(400).json({
           error: `Failed to convert guest account: ${errorMessage}`,
