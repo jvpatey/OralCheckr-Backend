@@ -45,7 +45,6 @@ QuestionnaireResponse.init(
     userId: {
       type: getIntegerType(true),
       allowNull: false,
-      unique: true,
       references: {
         model: User,
         key: "userId",

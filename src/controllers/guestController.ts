@@ -98,45 +98,109 @@ export const convertGuestToUser = async (
     );
 
     // Migrate questionnaire responses from the guest user to the new user
-    await QuestionnaireResponse.update(
-      { userId: newUser.userId },
-      { where: { userId: guestUserId } }
-    );
-    console.log(
-      `Migrated questionnaire responses from guest user ${guestUserId} to new user ${newUser.userId}`
-    );
+    const guestResponses = await QuestionnaireResponse.findAll({
+      where: { userId: guestUserId },
+    });
+
+    let questionnaireCount = 0;
+    if (guestResponses && guestResponses.length > 0) {
+      for (const response of guestResponses) {
+        // Create a new response with the new user ID but keep all other data
+        await QuestionnaireResponse.create({
+          userId: newUser.userId,
+          responses: response.responses,
+          totalScore: response.totalScore,
+          currentQuestion: response.currentQuestion,
+        });
+        questionnaireCount++;
+      }
+      console.log(
+        `Migrated ${questionnaireCount} questionnaire responses from guest user ${guestUserId} to new user ${newUser.userId}`
+      );
+    } else {
+      console.log(
+        `No questionnaire responses found for guest user ${guestUserId}`
+      );
+    }
 
     // Migrate habits from the guest user to the new user
-    await Habit.update(
-      { userId: newUser.userId },
-      { where: { userId: guestUserId } }
-    );
-    console.log(
-      `Migrated habits from guest user ${guestUserId} to new user ${newUser.userId}`
-    );
+    const guestHabits = await Habit.findAll({
+      where: { userId: guestUserId },
+    });
+
+    let habitCount = 0;
+    const habitIdMap = new Map(); // Map old habit IDs to new habit IDs
+
+    if (guestHabits && guestHabits.length > 0) {
+      for (const habit of guestHabits) {
+        // Create a new habit with the new user ID but keep all other data
+        const newHabit = await Habit.create({
+          userId: newUser.userId,
+          name: habit.name,
+          count: habit.count,
+        });
+
+        // Store mapping of old habit ID to new habit ID for habit logs
+        habitIdMap.set(habit.habitId, newHabit.habitId);
+        habitCount++;
+      }
+      console.log(
+        `Migrated ${habitCount} habits from guest user ${guestUserId} to new user ${newUser.userId}`
+      );
+    } else {
+      console.log(`No habits found for guest user ${guestUserId}`);
+    }
 
     // Migrate habit logs from the guest user to the new user
-    await HabitLog.update(
-      { userId: newUser.userId },
-      { where: { userId: guestUserId } }
-    );
-    console.log(
-      `Migrated habit logs from guest user ${guestUserId} to new user ${newUser.userId}`
-    );
-
-    // Count how many habits were migrated
-    const habitCount = await Habit.count({ where: { userId: newUser.userId } });
-    console.log(`Migrated ${habitCount} habits`);
-
-    // Count how many habit logs were migrated
-    const logCount = await HabitLog.count({
-      where: { userId: newUser.userId },
+    const guestLogs = await HabitLog.findAll({
+      where: { userId: guestUserId },
     });
-    console.log(`Migrated ${logCount} habit logs`);
 
-    // Delete the guest user record as it's no longer needed
-    await User.destroy({ where: { userId: guestUserId } });
-    console.log(`Deleted guest user ${guestUserId}`);
+    let logCount = 0;
+    if (guestLogs && guestLogs.length > 0) {
+      for (const log of guestLogs) {
+        // Get the new habit ID if it exists
+        const newHabitId = habitIdMap.get(log.habitId) || log.habitId;
+
+        // Create a new log with the new user ID and updated habit ID
+        await HabitLog.create({
+          userId: newUser.userId,
+          habitId: newHabitId,
+          date: log.date,
+          count: log.count,
+        });
+        logCount++;
+      }
+      console.log(
+        `Migrated ${logCount} habit logs from guest user ${guestUserId} to new user ${newUser.userId}`
+      );
+    } else {
+      console.log(`No habit logs found for guest user ${guestUserId}`);
+    }
+
+    // Delete the guest user's data in the correct order to avoid foreign key constraint errors
+    try {
+      // 1. First delete habit logs
+      await HabitLog.destroy({ where: { userId: guestUserId } });
+      console.log(`Deleted habit logs for guest user ${guestUserId}`);
+
+      // 2. Then delete habits
+      await Habit.destroy({ where: { userId: guestUserId } });
+      console.log(`Deleted habits for guest user ${guestUserId}`);
+
+      // 3. Delete questionnaire responses
+      await QuestionnaireResponse.destroy({ where: { userId: guestUserId } });
+      console.log(
+        `Deleted questionnaire responses for guest user ${guestUserId}`
+      );
+
+      // 4. Finally delete the guest user
+      await User.destroy({ where: { userId: guestUserId } });
+      console.log(`Deleted guest user ${guestUserId}`);
+    } catch (error) {
+      console.error(`Error deleting guest user data: ${error}`);
+      // Continue with the conversion process even if deletion fails
+    }
 
     // Generate a new access token for the new user
     const newAccessToken = jwt.sign(
@@ -163,11 +227,14 @@ export const convertGuestToUser = async (
         email: newUser.email,
         isGuest: false,
       },
-      habitsMigrated: habitCount,
-      logsMigrated: logCount,
+      dataMigrated: {
+        questionnaires: questionnaireCount,
+        habits: habitCount,
+        habitLogs: logCount,
+      },
     });
     console.log(
-      `Guest conversion completed: User ${newUser.email} (ID: ${newUser.userId}) with ${habitCount} habits and ${logCount} logs`
+      `Guest conversion completed: User ${newUser.email} (ID: ${newUser.userId}) with ${questionnaireCount} questionnaires, ${habitCount} habits and ${logCount} logs`
     );
   } catch (error) {
     console.error("Error converting guest to user:", error);

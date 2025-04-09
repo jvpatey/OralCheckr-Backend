@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/userModel";
 import {
   generateAccessToken,
@@ -7,6 +8,7 @@ import {
   getCookieConfig,
 } from "../utils/authUtils";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { convertGuestToUser } from "./guestController";
 
 /* -- Authentication Controllers -- */
 
@@ -32,7 +34,40 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Check if the email already exists
+  // Check if the request comes from a guest user
+  const token =
+    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+
+  if (token) {
+    try {
+      // Try to decode the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+        userId: number;
+        role?: string;
+      };
+
+      // If this is a guest token, redirect to the guest conversion flow
+      if (decoded.role === "guest") {
+        console.log(
+          `Detected guest user (ID: ${decoded.userId}), redirecting to guest conversion flow`
+        );
+        // Add user object to the request so convertGuestToUser can use it
+        (req as AuthenticatedRequest).user = {
+          userId: decoded.userId,
+          role: "guest",
+        };
+        // Call the guest conversion function
+        return await convertGuestToUser(req as AuthenticatedRequest, res);
+      }
+    } catch (err) {
+      // Token validation failed, proceed with normal registration
+      console.log(
+        "Token validation failed, proceeding with normal registration"
+      );
+    }
+  }
+
+  // Continue with normal registration process for non-guest users
   try {
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {

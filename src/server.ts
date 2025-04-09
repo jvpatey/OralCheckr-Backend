@@ -112,9 +112,7 @@ app.use("/habit-logs", habitLogRoutes); // Habit logging and tracking
 
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
-/* -- Server Startup Function -- */
-
-// Start the server
+/* -- Start the server -- */
 const startServer = async () => {
   try {
     // Only connect to database if not in test mode
