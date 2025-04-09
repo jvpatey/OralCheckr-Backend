@@ -28,12 +28,8 @@ export const verifyToken = (
         userId: number;
         role?: string;
       };
-      console.log(`Auth: User ${decoded.userId} accessing ${req.originalUrl}`);
-    } catch (err) {
-      console.log(`Auth: Invalid token for ${req.originalUrl}`);
-    }
+    } catch (err) {}
   } else {
-    console.log(`Auth: No token provided for ${req.originalUrl}`);
   }
 
   // If the token is not provided, send a 401 error

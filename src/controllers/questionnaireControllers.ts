@@ -161,18 +161,12 @@ export const getResponseByUser = async (
     // Check if the response record exists
     if (!responseRecord) {
       // If no response exists yet, return 204 No Content for all users
-      console.log(
-        `User ${userId}: No existing response found, returning 204 No Content`
-      );
       res.status(204).end();
       return;
     }
 
     // Send a success response to the client
     res.status(200).json(responseRecord);
-    console.log(
-      `Questionnaire responses get successful: Fetched response for user: ${userId}`
-    );
   } catch (error) {
     console.error(
       `Questionnaire responses get failed: Error fetching user response: ${error}`
@@ -223,10 +217,6 @@ export const updateProgress = async (
       return;
     }
 
-    console.log(
-      `Questionnaire progress update: Processing update for user: ${userId} and current question: ${currentQuestion}`
-    );
-
     // Find existing progress record for the user
     const existingResponse = await QuestionnaireResponse.findOne({
       where: { userId },
@@ -239,9 +229,6 @@ export const updateProgress = async (
         message: "Questionnaire progress updated",
         progress: { responses, currentQuestion },
       });
-      console.log(
-        `Questionnaire progress update successful: Updated existing response: ${existingResponse.id} for user: ${userId}`
-      );
     } else {
       // Create a new record if none exists yet.
       const newResponse = await QuestionnaireResponse.create({
@@ -254,9 +241,6 @@ export const updateProgress = async (
         progress: { responses, currentQuestion },
         response: newResponse,
       });
-      console.log(
-        `Questionnaire progress update successful: Created new response: ${newResponse.id} for user: ${userId}`
-      );
     }
   } catch (error) {
     console.error("Error updating progress:", error);
@@ -301,9 +285,6 @@ export const getProgress = async (
     });
     if (!responseRecord) {
       // If no progress exists yet, return 204 No Content for all users
-      console.log(
-        `User ${userId}: No existing progress found, returning 204 No Content`
-      );
       res.status(204).end();
       return;
     }
@@ -313,9 +294,6 @@ export const getProgress = async (
       responses: responseRecord.responses,
       currentQuestion: responseRecord.currentQuestion,
     });
-    console.log(
-      `Questionnaire progress get successful: Fetched progress for user: ${userId}`
-    );
   } catch (error) {
     console.error(
       `Questionnaire progress get failed: Error fetching progress: ${error}`
