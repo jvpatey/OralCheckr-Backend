@@ -2,6 +2,12 @@ import { Response } from "express";
 import Habit from "../models/habitModel";
 import HabitLog from "../models/habitLogModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import {
+  HabitCreationAttributes,
+  HabitResponse,
+  HabitError,
+  HabitUpdateData,
+} from "../interfaces/habit";
 
 /* -- Get all habits for a user -- */
 export const getHabits = async (
@@ -76,11 +82,13 @@ export const createHabit = async (
       return;
     }
 
-    const habit = await Habit.create({
+    const habitData: HabitCreationAttributes = {
       name,
       count,
       userId,
-    });
+    };
+
+    const habit = await Habit.create(habitData);
     console.log(
       `User: ${userId} created habit successfully: Name: ${habit.name}, Count: ${habit.count}`
     );
@@ -89,10 +97,10 @@ export const createHabit = async (
   } catch (error) {
     console.error("Error creating habit:", error);
     if (error instanceof Error) {
-      // Check if it's a Sequelize validation error
-      if ("errors" in error && Array.isArray((error as any).errors)) {
-        const validationErrors = (error as any).errors
-          .map((err: any) => err.message)
+      const habitError = error as HabitError;
+      if (habitError.errors && Array.isArray(habitError.errors)) {
+        const validationErrors = habitError.errors
+          .map((err) => err.message)
           .join(", ");
         res
           .status(400)
@@ -126,9 +134,13 @@ export const updateHabit = async (
       return;
     }
 
-    const { name, count } = req.body;
+    const updateData: HabitUpdateData = req.body;
 
-    if (!name || count === undefined || count < 1) {
+    if (
+      !updateData.name ||
+      updateData.count === undefined ||
+      updateData.count < 1
+    ) {
       res.status(400).json({
         error: "Name and count are required. Count must be a positive number.",
       });
@@ -148,9 +160,9 @@ export const updateHabit = async (
     }
 
     // Check if another habit with the new name already exists
-    if (name !== habit.name) {
+    if (updateData.name !== habit.name) {
       const existingHabit = await Habit.findOne({
-        where: { name, userId },
+        where: { name: updateData.name, userId },
       });
 
       if (existingHabit) {
@@ -163,9 +175,14 @@ export const updateHabit = async (
     }
 
     // Update the habit
-    await habit.update({ name, count });
+    await habit.update(updateData);
 
-    res.status(200).json(habit);
+    const updatedHabit: HabitResponse = {
+      ...habit.toJSON(),
+      message: "Habit updated successfully",
+    };
+
+    res.status(200).json(updatedHabit);
     console.log(
       `User: ${userId} updated habit successfully: Name: ${habit.name}, Count: ${habit.count}`
     );
@@ -190,6 +207,7 @@ export const deleteHabit = async (
       return;
     }
 
+    // Find the habit
     const habit = await Habit.findOne({
       where: { habitId, userId },
     });
@@ -207,15 +225,21 @@ export const deleteHabit = async (
 
     // Then delete the habit
     await habit.destroy();
-    console.log(
-      `User: ${userId} deleted habit successfully: Habit:${habit.name}`
-    );
 
-    res
-      .status(200)
-      .json({ message: "Habit and associated logs deleted successfully" });
+    const response: HabitResponse = {
+      habitId: habit.habitId,
+      userId: habit.userId,
+      name: habit.name,
+      count: habit.count,
+      message: "Habit and associated logs deleted successfully",
+    };
+
+    res.status(200).json(response);
+    console.log(
+      `User: ${userId} deleted habit successfully: Name: ${habit.name}`
+    );
   } catch (error) {
-    console.error("Habit deletion failed:", error);
+    console.error("Error deleting habit:", error);
     res.status(500).json({ error: "Failed to delete habit" });
   }
 };
@@ -230,7 +254,7 @@ export const deleteAllHabits = async (
 
     if (!userId) {
       res.status(401).json({ error: "Unauthorized: User not authenticated" });
-      console.log("All habits deletion failed: User not authenticated");
+      console.log("Habit deletion failed: User not authenticated");
       return;
     }
 
@@ -243,11 +267,17 @@ export const deleteAllHabits = async (
     await Habit.destroy({
       where: { userId },
     });
-    console.log(`All habits deleted successfully for user: ${userId}`);
 
-    res
-      .status(200)
-      .json({ message: "All habits and their logs deleted successfully" });
+    const response: HabitResponse = {
+      habitId: 0, // Placeholder since deleting all habits
+      userId: userId,
+      name: "", // Placeholder since deleting all habits
+      count: 0, // Placeholder since deleting all habits
+      message: "All habits and their logs deleted successfully",
+    };
+
+    res.status(200).json(response);
+    console.log(`User: ${userId} deleted all habits successfully`);
   } catch (error) {
     console.error("Error deleting all habits:", error);
     res.status(500).json({ error: "Failed to delete all habits" });
