@@ -1,7 +1,7 @@
 import sequelize from "../src/db/db";
 import Habit from "../src/models/habitModel";
 import HabitLog from "../src/models/habitLogModel";
-import { Op } from "sequelize";
+import { Op, Model, FindOptions } from "sequelize";
 import {
   mockUser,
   mockHabits,
@@ -11,6 +11,7 @@ import {
   expectLogProperties,
   standardDateParams,
 } from "./utils/testUtils";
+import { HabitLogAttributes } from "../src/models/habitLogModel";
 
 /* -- Habit Log Routes Tests -- */
 
@@ -30,7 +31,9 @@ describe("Habit Log Routes", () => {
   // Test the habit log GET endpoint
   describe("GET /habit-logs/:habitId", () => {
     it("should return all logs for a specific habit", async () => {
-      jest.spyOn(HabitLog, "findAll").mockResolvedValue(mockLogs as any);
+      jest
+        .spyOn(HabitLog, "findAll")
+        .mockResolvedValue(mockLogs as unknown as Model[]);
 
       const res = await makeAuthenticatedRequest("get", "/habit-logs/1");
 
@@ -56,12 +59,19 @@ describe("Habit Log Routes", () => {
     });
 
     it("should filter logs by year and month if provided", async () => {
-      jest.spyOn(HabitLog, "findAll").mockImplementation((options: any) => {
-        if (options?.where?.date?.[Op.between]) {
-          return Promise.resolve([mockLogs[0]] as any);
-        }
-        return Promise.resolve(mockLogs as any);
-      });
+      jest
+        .spyOn(HabitLog, "findAll")
+        .mockImplementation((options?: FindOptions<HabitLogAttributes>) => {
+          const whereOptions = options?.where as {
+            date?: {
+              [Op.between]: [Date, Date];
+            };
+          };
+          if (whereOptions?.date?.[Op.between]) {
+            return Promise.resolve([mockLogs[0]] as unknown as Model[]);
+          }
+          return Promise.resolve(mockLogs as unknown as Model[]);
+        });
 
       const res = await makeAuthenticatedRequest(
         "get",
@@ -77,7 +87,9 @@ describe("Habit Log Routes", () => {
   // Tests the habit log increment endpoint
   describe("POST /habit-logs/:habitId/increment", () => {
     it("should increment habit count for a specific date", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
+      jest
+        .spyOn(Habit, "findOne")
+        .mockResolvedValue(mockHabits[0] as unknown as Model);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue(null);
       jest.spyOn(HabitLog, "upsert").mockResolvedValue([
         {
@@ -86,9 +98,9 @@ describe("Habit Log Routes", () => {
           userId: mockUser.userId,
           date: new Date(2023, 5, 15),
           count: 1,
-        } as any,
+        } as unknown as Model,
         true,
-      ] as any);
+      ]);
 
       const res = await makeAuthenticatedRequest(
         "post",
@@ -103,13 +115,15 @@ describe("Habit Log Routes", () => {
     });
 
     it("should increment existing log count", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
+      jest
+        .spyOn(Habit, "findOne")
+        .mockResolvedValue(mockHabits[0] as unknown as Model);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         habitId: 1,
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
         count: 1,
-      } as any);
+      } as unknown as Model);
 
       jest.spyOn(HabitLog, "upsert").mockResolvedValue([
         {
@@ -118,9 +132,9 @@ describe("Habit Log Routes", () => {
           userId: mockUser.userId,
           date: new Date(2023, 5, 15),
           count: 2,
-        } as any,
+        } as unknown as Model,
         true,
-      ] as any);
+      ]);
 
       const res = await makeAuthenticatedRequest(
         "post",
@@ -180,13 +194,15 @@ describe("Habit Log Routes", () => {
       expect(resNotFound.body).toHaveProperty("error");
 
       // Test max count limit
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
+      jest
+        .spyOn(Habit, "findOne")
+        .mockResolvedValue(mockHabits[0] as unknown as Model);
       jest.spyOn(HabitLog, "findOne").mockResolvedValue({
         habitId: 1,
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
         count: 3,
-      } as any);
+      } as unknown as Model);
 
       const resMaxCount = await makeAuthenticatedRequest(
         "post",
@@ -209,7 +225,7 @@ describe("Habit Log Routes", () => {
         date: new Date(2023, 5, 15),
         count: 1,
         destroy: jest.fn().mockResolvedValue(true),
-      } as any);
+      } as unknown as Model);
 
       // Make request
       const res = await makeAuthenticatedRequest(
@@ -234,7 +250,7 @@ describe("Habit Log Routes", () => {
           this.count = 1;
           return Promise.resolve(this);
         }),
-      } as any);
+      } as unknown as Model);
 
       const res = await makeAuthenticatedRequest(
         "post",
@@ -320,23 +336,42 @@ describe("Habit Log Routes", () => {
 
     it("should enforce proper authorization and access control", async () => {
       // Test accessing another user's habit logs
-      jest.spyOn(HabitLog, "findAll").mockImplementation((options: any) => {
-        if (options?.where?.userId === mockUser.userId) {
-          return Promise.resolve([]);
-        }
-        return Promise.resolve(mockLogs as any);
-      });
+      jest
+        .spyOn(HabitLog, "findAll")
+        .mockImplementation((options?: FindOptions) => {
+          const whereOptions = options?.where as { userId?: number };
+          if (whereOptions?.userId === mockUser.userId) {
+            return Promise.resolve([]);
+          }
+          return Promise.resolve(mockLogs as unknown as Model[]);
+        });
+
+      // Test incrementing another user's habit
+      jest
+        .spyOn(Habit, "findOne")
+        .mockImplementation((options?: FindOptions) => {
+          const whereOptions = options?.where as { userId?: number };
+          if (whereOptions?.userId === mockUser.userId) {
+            return Promise.resolve(null);
+          }
+          return Promise.resolve(mockHabits[0] as unknown as Model);
+        });
+
+      // Test decrementing another user's habit log
+      jest
+        .spyOn(HabitLog, "findOne")
+        .mockImplementation((options?: FindOptions) => {
+          const whereOptions = options?.where as { userId?: number };
+          if (whereOptions?.userId === mockUser.userId) {
+            return Promise.resolve(null);
+          }
+          return Promise.resolve(mockLogs[0] as unknown as Model);
+        });
+
       const getRes = await makeAuthenticatedRequest("get", "/habit-logs/999");
       expect(getRes.status).toBe(200);
       expect(getRes.body).toEqual({ logs: [] });
 
-      // Test incrementing another user's habit
-      jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
-        if (options?.where?.userId === mockUser.userId) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(mockHabits[0] as any);
-      });
       const incrementRes = await makeAuthenticatedRequest(
         "post",
         "/habit-logs/999/increment",
@@ -345,13 +380,6 @@ describe("Habit Log Routes", () => {
       expect(incrementRes.status).toBe(404);
       expect(incrementRes.body).toHaveProperty("error");
 
-      // Test decrementing another user's habit log
-      jest.spyOn(HabitLog, "findOne").mockImplementation((options: any) => {
-        if (options?.where?.userId === mockUser.userId) {
-          return Promise.resolve(null);
-        }
-        return Promise.resolve(mockLogs[0] as any);
-      });
       const decrementRes = await makeAuthenticatedRequest(
         "post",
         "/habit-logs/999/decrement",

@@ -86,9 +86,9 @@ export const mockLogs: MockHabitLog[] = [
 
 // Mock date parameters
 export const standardDateParams: DateParams = {
-  year: 2023,
+  year: "2023",
   month: "June",
-  day: 15,
+  day: "15",
 };
 
 /* -- Test Utilities -- */
