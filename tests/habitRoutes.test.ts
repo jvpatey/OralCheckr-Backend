@@ -1,7 +1,7 @@
 import sequelize from "../src/db/db";
 import Habit from "../src/models/habitModel";
 import HabitLog from "../src/models/habitLogModel";
-import { Model } from "sequelize";
+import { Model, FindOptions, WhereOptions } from "sequelize";
 import {
   mockHabits,
   makeAuthenticatedRequest,
@@ -147,13 +147,15 @@ describe("Habit Routes", () => {
         toJSON: () => updatedHabit,
       } as unknown as MockHabitModel;
 
-      jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
-        // Return habit for update or null for duplicate check
-        if (options?.where?.habitId === 1) {
-          return Promise.resolve(mockExistingHabit);
-        }
-        return Promise.resolve(null);
-      });
+      jest
+        .spyOn(Habit, "findOne")
+        .mockImplementation((options?: FindOptions) => {
+          const whereClause = options?.where as { habitId?: number };
+          if (whereClause?.habitId === 1) {
+            return Promise.resolve(mockExistingHabit);
+          }
+          return Promise.resolve(null);
+        });
 
       const res = await makeAuthenticatedRequest("put", "/habits/1", {
         name: "Brush teeth twice",
@@ -215,17 +217,21 @@ describe("Habit Routes", () => {
         ...mockHabits[1],
       } as unknown as MockHabitModel;
 
-      jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
-        // Return habit for update
-        if (options?.where?.habitId === 1) {
-          return Promise.resolve(mockHabitForUpdate);
-        }
-        // Return existing habit for duplicate check
-        if (options?.where?.name === "Floss") {
-          return Promise.resolve(mockExistingHabit);
-        }
-        return Promise.resolve(null);
-      });
+      jest
+        .spyOn(Habit, "findOne")
+        .mockImplementation((options?: FindOptions) => {
+          const whereClause = options?.where as {
+            habitId?: number;
+            name?: string;
+          };
+          if (whereClause?.habitId === 1) {
+            return Promise.resolve(mockHabitForUpdate);
+          }
+          if (whereClause?.name === "Floss") {
+            return Promise.resolve(mockExistingHabit);
+          }
+          return Promise.resolve(null);
+        });
 
       const resDuplicateName = await makeAuthenticatedRequest(
         "put",
