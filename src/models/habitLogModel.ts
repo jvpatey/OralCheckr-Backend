@@ -7,7 +7,7 @@ import { getIntegerType, DATE } from "../db/dataTypes";
 
 // Interfaces
 
-interface HabitLogAttributes {
+export interface HabitLogAttributes {
   logId: number;
   habitId: number;
   userId: number;

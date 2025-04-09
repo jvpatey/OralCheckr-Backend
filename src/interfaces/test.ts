@@ -42,10 +42,10 @@ export interface MockHabitLog {
   };
 }
 
-export interface DateParams {
-  year: number;
+export interface DateParams extends Record<string, unknown> {
+  year: string | number;
   month: string;
-  day: number;
+  day: string | number;
 }
 
 export interface TokenPayload {
