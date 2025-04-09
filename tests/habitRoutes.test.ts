@@ -1,11 +1,28 @@
 import sequelize from "../src/db/db";
 import Habit from "../src/models/habitModel";
 import HabitLog from "../src/models/habitLogModel";
+import { Model } from "sequelize";
 import {
   mockHabits,
   makeAuthenticatedRequest,
   makeUnauthenticatedRequest,
 } from "./utils/testUtils";
+
+type MockHabitAttributes = {
+  habitId: number;
+  userId: number;
+  name: string;
+  count: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+type MockHabitModel = Model &
+  MockHabitAttributes & {
+    update?: (data: Partial<MockHabitAttributes>) => Promise<MockHabitModel>;
+    destroy?: () => Promise<void>;
+    toJSON?: () => MockHabitAttributes;
+  };
 
 /* -- Habit Routes Tests -- */
 
@@ -21,7 +38,12 @@ describe("Habit Routes", () => {
   // Tests for the habit GET endpoint
   describe("GET /habits", () => {
     it("should return all habits for the authenticated user", async () => {
-      jest.spyOn(Habit, "findAll").mockResolvedValue(mockHabits as any);
+      const mockHabitModels = mockHabits.map((habit) => ({
+        ...habit,
+        toJSON: () => habit,
+      })) as unknown as MockHabitModel[];
+
+      jest.spyOn(Habit, "findAll").mockResolvedValue(mockHabitModels);
 
       const res = await makeAuthenticatedRequest("get", "/habits");
 
@@ -46,10 +68,13 @@ describe("Habit Routes", () => {
   describe("POST /habits", () => {
     it("should create a new habit successfully", async () => {
       jest.spyOn(Habit, "findOne").mockResolvedValue(null);
-      jest.spyOn(Habit, "create").mockResolvedValue({
+
+      const mockNewHabit: MockHabitModel = {
         ...mockHabits[0],
         toJSON: () => mockHabits[0],
-      } as any);
+      } as unknown as MockHabitModel;
+
+      jest.spyOn(Habit, "create").mockResolvedValue(mockNewHabit);
 
       const res = await makeAuthenticatedRequest("post", "/habits", {
         name: "Brush teeth",
@@ -90,7 +115,11 @@ describe("Habit Routes", () => {
       expect(resInvalidCount.status).toBe(400);
 
       // Test duplicate habit name
-      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabits[0] as any);
+      const mockExistingHabit: MockHabitModel = {
+        ...mockHabits[0],
+      } as unknown as MockHabitModel;
+
+      jest.spyOn(Habit, "findOne").mockResolvedValue(mockExistingHabit);
       const resDuplicateName = await makeAuthenticatedRequest(
         "post",
         "/habits",
@@ -106,25 +135,22 @@ describe("Habit Routes", () => {
   // Tests the habit PUT endpoint
   describe("PUT /habits/:id", () => {
     it("should update a habit successfully", async () => {
+      const updatedHabit: MockHabitAttributes = {
+        ...mockHabits[0],
+        name: "Brush teeth twice",
+        count: 3,
+      };
+
+      const mockExistingHabit: MockHabitModel = {
+        ...mockHabits[0],
+        update: jest.fn().mockResolvedValue(updatedHabit),
+        toJSON: () => updatedHabit,
+      } as unknown as MockHabitModel;
+
       jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
         // Return habit for update or null for duplicate check
         if (options?.where?.habitId === 1) {
-          return Promise.resolve({
-            ...mockHabits[0],
-            update: jest.fn().mockImplementation(() => {
-              const updatedHabit = {
-                ...mockHabits[0],
-                name: "Brush teeth twice",
-                count: 3,
-              };
-              return Promise.resolve(updatedHabit);
-            }),
-            toJSON: () => ({
-              ...mockHabits[0],
-              name: "Brush teeth twice",
-              count: 3,
-            }),
-          } as any);
+          return Promise.resolve(mockExistingHabit);
         }
         return Promise.resolve(null);
       });
@@ -180,17 +206,23 @@ describe("Habit Routes", () => {
       expect(resInvalidCount.status).toBe(400);
 
       // Test duplicate habit name
+      const mockHabitForUpdate: MockHabitModel = {
+        ...mockHabits[0],
+        name: "Brush teeth",
+      } as unknown as MockHabitModel;
+
+      const mockExistingHabit: MockHabitModel = {
+        ...mockHabits[1],
+      } as unknown as MockHabitModel;
+
       jest.spyOn(Habit, "findOne").mockImplementation((options: any) => {
         // Return habit for update
         if (options?.where?.habitId === 1) {
-          return Promise.resolve({
-            ...mockHabits[0],
-            name: "Brush teeth",
-          } as any);
+          return Promise.resolve(mockHabitForUpdate);
         }
         // Return existing habit for duplicate check
         if (options?.where?.name === "Floss") {
-          return Promise.resolve(mockHabits[1] as any);
+          return Promise.resolve(mockExistingHabit);
         }
         return Promise.resolve(null);
       });
@@ -211,12 +243,13 @@ describe("Habit Routes", () => {
   // Tests the habit DELETE endpoint
   describe("DELETE /habits/:id", () => {
     it("should delete a habit successfully", async () => {
-      jest.spyOn(Habit, "findOne").mockResolvedValue({
+      const mockHabitToDelete: MockHabitModel = {
         ...mockHabits[0],
         destroy: jest.fn().mockResolvedValue(undefined),
-      } as any);
+      } as unknown as MockHabitModel;
 
-      jest.spyOn(HabitLog, "destroy").mockResolvedValue(2 as any);
+      jest.spyOn(Habit, "findOne").mockResolvedValue(mockHabitToDelete);
+      jest.spyOn(HabitLog, "destroy").mockResolvedValue(2);
 
       const res = await makeAuthenticatedRequest("delete", "/habits/1");
 
@@ -236,8 +269,8 @@ describe("Habit Routes", () => {
   // Tests the habit DELETE all endpoint
   describe("DELETE /habits", () => {
     it("should delete all habits and logs for the user", async () => {
-      jest.spyOn(Habit, "destroy").mockResolvedValue(2 as any);
-      jest.spyOn(HabitLog, "destroy").mockResolvedValue(5 as any);
+      jest.spyOn(Habit, "destroy").mockResolvedValue(2);
+      jest.spyOn(HabitLog, "destroy").mockResolvedValue(5);
 
       const res = await makeAuthenticatedRequest("delete", "/habits");
 
@@ -248,8 +281,8 @@ describe("Habit Routes", () => {
     });
 
     it("should return 200 even if no habits exist", async () => {
-      jest.spyOn(Habit, "destroy").mockResolvedValue(0 as any);
-      jest.spyOn(HabitLog, "destroy").mockResolvedValue(0 as any);
+      jest.spyOn(Habit, "destroy").mockResolvedValue(0);
+      jest.spyOn(HabitLog, "destroy").mockResolvedValue(0);
 
       const res = await makeAuthenticatedRequest("delete", "/habits");
 
