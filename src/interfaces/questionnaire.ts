@@ -43,3 +43,16 @@ export interface QuestionnaireError {
   details?: string;
   errors?: ValidationError[];
 }
+
+export interface DecodedToken {
+  userId: number;
+}
+
+export interface SequelizeValidationError extends Error {
+  errors: ValidationError[];
+}
+
+export interface QuestionnaireRequestBody {
+  responses: Record<number, number | number[]>;
+  totalScore: number;
+}

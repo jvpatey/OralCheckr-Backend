@@ -7,13 +7,12 @@ import {
   QuestionnaireProgress,
   QuestionnaireError,
   ValidationError,
+  DecodedToken,
+  SequelizeValidationError,
+  QuestionnaireRequestBody,
 } from "../interfaces/questionnaire";
 
 /* -- Questionnaire Controller -- */
-
-interface DecodedToken {
-  userId: number;
-}
 
 /* -- Save questionaire responss on submission of questionnaire -- */
 export const saveResponse = async (
@@ -37,10 +36,7 @@ export const saveResponse = async (
     const userId = decoded.userId;
 
     // Get responses and totalScore from request body
-    const { responses, totalScore } = req.body as {
-      responses: Record<number, number | number[]>;
-      totalScore: number;
-    };
+    const { responses, totalScore } = req.body as QuestionnaireRequestBody;
 
     // Check if the responses and totalScore are provided
     if (!responses || totalScore === undefined) {
@@ -100,14 +96,17 @@ export const saveResponse = async (
     );
     if (error instanceof Error) {
       // Check if it's a Sequelize validation error
-      if ("errors" in error && Array.isArray((error as any).errors)) {
-        const validationErrors = (error as any).errors
+      if (
+        "errors" in error &&
+        Array.isArray((error as SequelizeValidationError).errors)
+      ) {
+        const validationErrors = (error as SequelizeValidationError).errors
           .map((err: ValidationError) => err.message)
           .join(", ");
         res.status(400).json({
           error: "Questionnaire validation failed",
           details: `Invalid data: ${validationErrors}`,
-          errors: (error as any).errors,
+          errors: (error as SequelizeValidationError).errors,
         } as QuestionnaireError);
       } else {
         res.status(400).json({

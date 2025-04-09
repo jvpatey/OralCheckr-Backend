@@ -1,5 +1,6 @@
 import { Sequelize } from "sequelize";
 import config from "./config";
+import { getSequelizeConfig } from "./sequelizeConfig";
 
 /* -- Database Connection -- */
 
@@ -15,26 +16,10 @@ const sslConfig =
 
 /* -- Create Sequelize instance -- */
 const sequelize = new Sequelize(
-  // Get database name, user, password
   config.DB_NAME,
   config.DB_USER,
   config.DB_PASS,
-  {
-    // Get host, dialect, port
-    host: config.DB_HOST,
-    dialect: config.DB_DIALECT as any,
-    port: parseInt(config.DB_PORT, 10),
-    logging: false,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    dialectOptions: {
-      ssl: sslConfig,
-    },
-  }
+  getSequelizeConfig()
 );
 
 /* -- Connect to the database -- */
