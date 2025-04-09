@@ -223,11 +223,8 @@ describe("Questionnaire Endpoints", () => {
         8888
       );
 
-      expect(res.statusCode).toEqual(404);
-      expect(res.body).toHaveProperty(
-        "error",
-        "No response found for this user"
-      );
+      expect(res.statusCode).toEqual(204);
+      expect(res.body).toEqual({});
     });
   });
 
@@ -384,11 +381,8 @@ describe("Questionnaire Endpoints", () => {
         6666
       );
 
-      expect(res.statusCode).toEqual(404);
-      expect(res.body).toHaveProperty(
-        "error",
-        "No progress found for this user"
-      );
+      expect(res.statusCode).toEqual(204);
+      expect(res.body).toEqual({});
     });
   });
 

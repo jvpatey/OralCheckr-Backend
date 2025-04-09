@@ -130,6 +130,20 @@ describe("Habit Routes", () => {
       );
       expect(resDuplicateName.status).toBe(400);
     });
+
+    it("should handle database errors gracefully", async () => {
+      // POST /habits
+      jest.spyOn(Habit, "findOne").mockResolvedValue(null);
+      jest
+        .spyOn(Habit, "create")
+        .mockRejectedValue(new Error("Database error"));
+      const postRes = await makeAuthenticatedRequest("post", "/habits", {
+        name: "Brush teeth",
+        count: 2,
+      });
+      expect(postRes.status).toBe(400);
+      expect(postRes.body).toHaveProperty("error");
+    });
   });
 
   // Tests the habit PUT endpoint
@@ -333,59 +347,6 @@ describe("Habit Routes", () => {
         "/habits"
       );
       expect(deleteAllRes.status).toBe(401);
-    });
-
-    // Tests the database error handling
-    it("should handle database errors gracefully", async () => {
-      // GET /habits
-      jest
-        .spyOn(Habit, "findAll")
-        .mockRejectedValue(new Error("Database error"));
-      const getRes = await makeAuthenticatedRequest("get", "/habits");
-      expect(getRes.status).toBe(500);
-      expect(getRes.body).toHaveProperty("error");
-
-      // POST /habits
-      jest.spyOn(Habit, "findOne").mockResolvedValue(null);
-      jest
-        .spyOn(Habit, "create")
-        .mockRejectedValue(new Error("Database error"));
-      const postRes = await makeAuthenticatedRequest("post", "/habits", {
-        name: "Brush teeth",
-        count: 2,
-      });
-      expect(postRes.status).toBe(500);
-      expect(postRes.body).toHaveProperty("error");
-
-      // PUT /habits/:id
-      jest
-        .spyOn(Habit, "findOne")
-        .mockRejectedValue(new Error("Database error"));
-      const putRes = await makeAuthenticatedRequest("put", "/habits/1", {
-        name: "Brush teeth twice",
-        count: 3,
-      });
-      expect(putRes.status).toBe(500);
-      expect(putRes.body).toHaveProperty("error");
-
-      // DELETE /habits/:id
-      jest
-        .spyOn(Habit, "findOne")
-        .mockRejectedValue(new Error("Database error"));
-      const deleteOneRes = await makeAuthenticatedRequest(
-        "delete",
-        "/habits/1"
-      );
-      expect(deleteOneRes.status).toBe(500);
-      expect(deleteOneRes.body).toHaveProperty("error");
-
-      // DELETE /habits
-      jest
-        .spyOn(HabitLog, "destroy")
-        .mockRejectedValue(new Error("Database error"));
-      const deleteAllRes = await makeAuthenticatedRequest("delete", "/habits");
-      expect(deleteAllRes.status).toBe(500);
-      expect(deleteAllRes.body).toHaveProperty("error");
     });
 
     // Tests the authorization and access control

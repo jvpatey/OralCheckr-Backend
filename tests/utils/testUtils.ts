@@ -11,7 +11,7 @@ import {
   DateParams,
   TokenPayload,
   SuperTestResponse,
-} from "../../src/interfaces/test";
+} from "../interfaces/interfaces";
 
 /* -- Mock Data -- */
 
