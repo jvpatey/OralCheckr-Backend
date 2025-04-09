@@ -12,6 +12,11 @@ import {
   format,
 } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+import {
+  HabitLogResponse,
+  DateParams,
+  LogDeleteResponse,
+} from "../interfaces/habitLog";
 
 /* -- Habit Log Controller -- */
 
@@ -36,7 +41,7 @@ export const getHabitLogs = async (
 
     // Get date range from query params
     const { year, month } = req.query;
-    const dateFilter: any = {};
+    const dateFilter: { date?: { [Op.between]: [Date, Date] } } = {};
 
     // Check if the year and month are provided
     if (year && month) {
@@ -100,7 +105,7 @@ export const getHabitLogs = async (
     );
 
     // Convert the logs to a flat structure
-    const transformedLogs = logs.map((log) => {
+    const transformedLogs: HabitLogResponse[] = logs.map((log) => {
       // Convert the date to a UTC date string
       const isoDate = formatInTimeZone(
         new Date(log.date),
@@ -140,7 +145,7 @@ export const logHabit = async (
     // Get the user's ID, habit ID, and date params
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.habitId);
-    const { year, month, day } = req.body;
+    const { year, month, day } = req.body as DateParams;
 
     // Check if the user is authenticated
     if (!userId) {
@@ -167,7 +172,7 @@ export const logHabit = async (
     }
 
     // Parse the date using date-fns
-    let parsedDate;
+    let parsedDate: Date;
     try {
       const localDate = parse(
         `${month} ${day}, ${year}`,
@@ -266,16 +271,17 @@ export const logHabit = async (
       // Format the date
       const isoDate = formatInTimeZone(parsedDate, TIMEZONE, "yyyy-MM-dd");
 
+      // Create the response object
+      const response: HabitLogResponse = {
+        id: log.logId,
+        date: isoDate,
+        count: currentCount + 1,
+        habitId,
+        habitName: habit.name,
+      };
+
       // Send a success response to the client
-      res.status(200).json({
-        log: {
-          id: log.logId,
-          date: isoDate,
-          count: currentCount + 1,
-          habitId,
-          habitName: habit.name,
-        },
-      });
+      res.status(200).json({ log: response });
     } catch (error) {
       console.error("Error logging habit:", error);
       res.status(500).json({
@@ -301,7 +307,7 @@ export const deleteHabitLog = async (
     // Get the user's ID, habit ID, and date params
     const userId = req.user?.userId;
     const habitId = parseInt(req.params.habitId);
-    const { year, month, day } = req.body;
+    const { year, month, day } = req.body as DateParams;
 
     // Check if the user is authenticated
     if (!userId) {
@@ -321,7 +327,7 @@ export const deleteHabitLog = async (
     }
 
     // Parse the date using date-fns
-    let parsedDate;
+    let parsedDate: Date;
     try {
       parsedDate = parse(
         `${month} ${day}, ${year}`,
@@ -386,8 +392,8 @@ export const deleteHabitLog = async (
       // Format the date
       const isoDate = format(parsedDate, "yyyy-MM-dd");
 
-      // Send a success response to the client
-      res.status(200).json({
+      // Create the response object
+      const response: LogDeleteResponse = {
         log: logDeleted
           ? null
           : {
@@ -395,9 +401,13 @@ export const deleteHabitLog = async (
               date: isoDate,
               count: updatedCount,
               habitId,
+              habitName: null,
             },
         deleted: logDeleted,
-      });
+      };
+
+      // Send a success response to the client
+      res.status(200).json(response);
     } catch (error) {
       console.error("Error updating habit log:", error);
       res.status(500).json({
