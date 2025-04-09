@@ -1,5 +1,6 @@
 import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
 import sequelize from "../src/db/db";
+import { Model } from "sequelize";
 import {
   mockUser,
   mockGuestUser,
@@ -8,6 +9,20 @@ import {
   makeUnauthenticatedRequest,
   makeGuestRequest,
 } from "./utils/testUtils";
+
+type MockQuestionnaireAttributes = {
+  id: number;
+  userId: number;
+  responses: { [key: number]: number | number[] };
+  totalScore: number;
+  currentQuestion?: number;
+};
+
+type MockQuestionnaireModel = Model &
+  MockQuestionnaireAttributes & {
+    destroy?: () => Promise<void>;
+    toJSON?: () => MockQuestionnaireAttributes;
+  };
 
 /* -- Questionnaire Delete Routes Tests -- */
 // JWT secret for test tokens
@@ -27,13 +42,17 @@ describe("Questionnaire Profile Endpoints", () => {
   describe("DELETE /questionnaire/response", () => {
     it("should successfully delete questionnaire data", async () => {
       const mockDestroy = jest.fn().mockResolvedValue(undefined);
-      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+      const mockQuestionnaireData: MockQuestionnaireModel = {
         id: 1,
         userId: mockUser.userId,
         responses: {},
         totalScore: 75,
         destroy: mockDestroy,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "findOne")
+        .mockResolvedValue(mockQuestionnaireData);
 
       const res = await makeAuthenticatedRequest(
         "delete",
@@ -76,12 +95,16 @@ describe("Questionnaire Profile Endpoints", () => {
   // Tests the guest questionnaire POST endpoint
   describe("POST /questionnaire/guest", () => {
     it("should save questionnaire data for guest user", async () => {
-      jest.spyOn(QuestionnaireResponse, "create").mockResolvedValue({
+      const mockGuestQuestionnaireData: MockQuestionnaireModel = {
         id: 1,
         userId: mockGuestUser.userId,
         responses: mockQuestionnaireData.responses,
         totalScore: mockQuestionnaireData.totalScore,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "create")
+        .mockResolvedValue(mockGuestQuestionnaireData);
 
       const res = await makeGuestRequest(
         "post",

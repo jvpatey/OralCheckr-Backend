@@ -272,7 +272,7 @@ describe("Habit Log Routes", () => {
         userId: mockUser.userId,
         date: new Date(2023, 5, 15),
         count: 2,
-        save: jest.fn().mockImplementation(function (this: any) {
+        save: jest.fn().mockImplementation(function (this: MockHabitLogModel) {
           this.count = 1;
           return Promise.resolve(this);
         }),
