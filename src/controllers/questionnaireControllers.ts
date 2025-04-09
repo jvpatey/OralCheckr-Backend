@@ -3,6 +3,11 @@ import jwt from "jsonwebtoken";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import {
+  QuestionnaireProgress,
+  QuestionnaireError,
+  ValidationError,
+} from "../interfaces/questionnaire";
 
 /* -- Questionnaire Controller -- */
 
@@ -32,7 +37,10 @@ export const saveResponse = async (
     const userId = decoded.userId;
 
     // Get responses and totalScore from request body
-    const { responses, totalScore } = req.body;
+    const { responses, totalScore } = req.body as {
+      responses: Record<number, number | number[]>;
+      totalScore: number;
+    };
 
     // Check if the responses and totalScore are provided
     if (!responses || totalScore === undefined) {
@@ -94,21 +102,25 @@ export const saveResponse = async (
       // Check if it's a Sequelize validation error
       if ("errors" in error && Array.isArray((error as any).errors)) {
         const validationErrors = (error as any).errors
-          .map((err: any) => err.message)
+          .map((err: ValidationError) => err.message)
           .join(", ");
         res.status(400).json({
-          error: `Failed to save questionnaire responses: ${validationErrors}`,
-        });
+          error: "Questionnaire validation failed",
+          details: `Invalid data: ${validationErrors}`,
+          errors: (error as any).errors,
+        } as QuestionnaireError);
       } else {
         res.status(400).json({
-          error: `Failed to save questionnaire responses: ${error.message}`,
-        });
+          error: "Questionnaire submission failed",
+          details: `Error: ${error.message}`,
+        } as QuestionnaireError);
       }
     } else {
       res.status(500).json({
-        error:
-          "Failed to save questionnaire responses due to an unexpected error. Please try again.",
-      });
+        error: "Internal server error",
+        details:
+          "An unexpected error occurred while processing your questionnaire submission",
+      } as QuestionnaireError);
     }
   }
 };
@@ -206,7 +218,7 @@ export const updateProgress = async (
     const userId = decoded.userId;
 
     // Get the responses and current question from the request body
-    const { responses, currentQuestion } = req.body;
+    const { responses, currentQuestion } = req.body as QuestionnaireProgress;
 
     // Check if the responses and current question are provided
     if (responses === undefined || currentQuestion === undefined) {
@@ -293,7 +305,7 @@ export const getProgress = async (
     res.status(200).json({
       responses: responseRecord.responses,
       currentQuestion: responseRecord.currentQuestion,
-    });
+    } as QuestionnaireProgress);
   } catch (error) {
     console.error(
       `Questionnaire progress get failed: Error fetching progress: ${error}`
@@ -379,5 +391,78 @@ export const deleteQuestionnaireData = async (
   } catch (error) {
     console.error("Error deleting questionnaire data:", error);
     res.status(500).json({ error: "Failed to delete questionnaire data" });
+  }
+};
+
+/* -- Save questionnaire responses on submission of questionnaire -- */
+export const saveQuestionnaireResponses = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Get the JWT token from the cookies
+    const token = req.cookies.accessToken;
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire responses save failed: No token provided");
+      return;
+    }
+
+    // Verify and decode JWT
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as DecodedToken;
+    const userId = decoded.userId;
+
+    // Get responses and totalScore from request body
+    const { responses, totalScore } = req.body as {
+      responses: Record<number, number | number[]>;
+      totalScore: number;
+    };
+
+    // Check if the responses and totalScore are provided
+    if (!responses || totalScore === undefined) {
+      res.status(400).json({ error: "Missing required fields" });
+      console.log(
+        "Questionnaire responses save failed: Missing required fields"
+      );
+      return;
+    }
+
+    // Get the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log("Questionnaire responses save failed: User not found");
+      return;
+    }
+
+    // Save the responses to the database
+    const questionnaireResponse = await QuestionnaireResponse.create({
+      userId,
+      responses,
+      totalScore,
+      currentQuestion: 0, // Reset to 0 after completion
+    });
+
+    res.status(201).json({
+      message: "Questionnaire responses saved successfully",
+      data: questionnaireResponse,
+    });
+    console.log("Questionnaire responses saved successfully");
+  } catch (error) {
+    console.error("Error saving questionnaire responses:", error);
+    if (error instanceof Error) {
+      res.status(500).json({
+        error: "Failed to save questionnaire responses",
+        details: error.message,
+      } as QuestionnaireError);
+    } else {
+      res.status(500).json({
+        error: "Internal server error",
+        details: "An unexpected error occurred",
+      } as QuestionnaireError);
+    }
   }
 };
