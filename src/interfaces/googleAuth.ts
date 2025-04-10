@@ -1,5 +1,6 @@
 /* -- Google Auth Interfaces -- */
 
+// Structure of the payload received from Google OAuth token
 export interface GoogleTokenPayload {
   sub: string;
   email: string;
@@ -8,6 +9,7 @@ export interface GoogleTokenPayload {
   picture?: string;
 }
 
+// Response structure for successful Google login
 export interface GoogleLoginResponse {
   message: string;
   user: {
@@ -20,6 +22,7 @@ export interface GoogleLoginResponse {
   };
 }
 
+// Custom error type for Google authentication failures
 export interface GoogleLoginError extends Error {
   name: string;
   message: string;

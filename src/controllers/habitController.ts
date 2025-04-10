@@ -269,10 +269,11 @@ export const deleteAllHabits = async (
     });
 
     const response: HabitResponse = {
-      habitId: 0, // Placeholder since deleting all habits
+      // Placeholders since deleting all habits
+      habitId: 0,
       userId: userId,
-      name: "", // Placeholder since deleting all habits
-      count: 0, // Placeholder since deleting all habits
+      name: "",
+      count: 0,
       message: "All habits and their logs deleted successfully",
     };
 
