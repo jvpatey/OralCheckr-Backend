@@ -10,7 +10,7 @@ import {
   createGuestUser,
   generateGuestAccessToken,
   getCookieConfig,
-  validatePassword,
+  generateAccessToken,
 } from "../utils/authUtils";
 import {
   GuestLoginResponse,
@@ -212,11 +212,7 @@ export const convertGuestToUser = async (
     }
 
     // Generate a new access token for the new user
-    const newAccessToken = jwt.sign(
-      { userId: newUser.userId, role: "user" },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "7d" }
-    );
+    const newAccessToken = generateAccessToken(newUser.userId, "user");
     console.log(`Generated new access token for user ${newUser.userId}`);
 
     // Set the new token in an HTTP-only cookie.
