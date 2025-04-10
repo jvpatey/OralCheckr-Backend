@@ -8,103 +8,41 @@ import authRoutes from "./routes/authRoutes";
 import questionnaireRoutes from "./routes/questionnaireRoutes";
 import habitRoutes from "./routes/habitRoutes";
 import habitLogRoutes from "./routes/habitLogRoutes";
+import { corsOptions } from "./config/corsConfig";
+import { addCrossOriginHeaders } from "./middlewares/common";
 
 /* -- OralCheckr Backend Server -- */
 
-// Load environment variables
+// Load environment variables from .env file
 dotenv.config();
 const port = process.env.PORT || 3000;
 const app = express();
-
-// Allowed origins for CORS
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://jvpatey.github.io",
-  "https://oralcheckr-backend.onrender.com",
-];
-
-// CORS options
-const corsOptions = {
-  // Allow credentials
-  origin: function (
-    origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean) => void
-  ) {
-    // Filter out empty strings from allowedOrigins
-    const validOrigins = allowedOrigins.filter((o) => o);
-
-    // If the origin is not allowed, return an error
-    if (!origin || validOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log(`Origin ${origin} not allowed by CORS`);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  // Allow credentials
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "Cookie",
-    "Origin",
-    "Accept",
-  ],
-  exposedHeaders: ["Set-Cookie"],
-  preflightContinue: false,
-  optionsSuccessStatus: 204,
-};
-
-// Log the CORS configuration
-console.log(
-  `CORS configured for ${
-    process.env.NODE_ENV
-  } environment with allowed origins: ${allowedOrigins
-    .filter((o) => o)
-    .join(", ")}`
-);
 
 /* -- Middleware Configuration -- */
 
 // Parse cookies from request headers
 app.use(cookieParser());
 
-// Enable CORS with credentials for the frontend
+// Enable CORS with configured options
 app.use(cors(corsOptions));
 
 // Parse JSON request bodies
 app.use(express.json());
 
-// Parse URL-encoded request bodies (form submissions)
+// Parse URL-encoded request bodies
 app.use(express.urlencoded({ extended: false }));
 
 // Add Cross-Origin headers for Google Auth
-app.use((req, res, next) => {
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-  next();
-});
-
-// Debug logging for auth requests (development only)
-if (process.env.NODE_ENV === "development") {
-  app.use((req, res, next) => {
-    if (req.path.startsWith("/auth")) {
-      console.log("Auth request:", {
-        path: req.path,
-        method: req.method,
-        timestamp: new Date().toISOString(),
-        origin: req.headers.origin || "No origin",
-      });
-    }
-    next();
-  });
-}
+app.use(addCrossOriginHeaders);
 
 /* -- API Routes -- */
+
+// Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", environment: process.env.NODE_ENV });
-}); // Render health check
+});
+
+// Mount route handlers
 app.use("/auth", authRoutes); // Authentication & user management
 app.use("/questionnaire", questionnaireRoutes); // Questionnaire responses
 app.use("/habits", habitRoutes); // Habit management
@@ -143,5 +81,4 @@ if (process.env.NODE_ENV !== "test" && require.main === module) {
   startServer();
 }
 
-// Export the Express app
 export default app;
