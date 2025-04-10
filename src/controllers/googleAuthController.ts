@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/userModel";
 import { generateAccessToken, getCookieConfig } from "../utils/authUtils";
+import { COOKIE_EXPIRATION } from "../utils/timeConstants";
 import { Op } from "sequelize";
 import {
   GoogleTokenPayload,
@@ -97,7 +98,7 @@ export const googleLogin = async (
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
     // Create user response object

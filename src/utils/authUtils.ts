@@ -1,6 +1,7 @@
 import jwt, { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/userModel";
+import { TOKEN_EXPIRATION } from "./timeConstants";
 
 /* -- Utility functions used in authentication controllers -- */
 
@@ -8,7 +9,7 @@ import User from "../models/userModel";
 export const generateAccessToken = (
   userId: number,
   role?: string,
-  expiresIn: SignOptions["expiresIn"] = "7d"
+  expiresIn: SignOptions["expiresIn"] = TOKEN_EXPIRATION.USER
 ): string => {
   const payload: { userId: number; role?: string } = { userId };
   if (role) {
@@ -21,7 +22,7 @@ export const generateAccessToken = (
 
 /* -- Generate a JWT token for the guest user -- */
 export const generateGuestAccessToken = (guestUserId: number): string => {
-  return generateAccessToken(guestUserId, "guest", "1d");
+  return generateAccessToken(guestUserId, "guest", TOKEN_EXPIRATION.GUEST);
 };
 
 /* -- Password Validation Function -- */

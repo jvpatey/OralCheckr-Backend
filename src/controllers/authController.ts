@@ -9,6 +9,7 @@ import {
 } from "../utils/authUtils";
 import { AuthenticatedRequest } from "../interfaces/auth";
 import { convertGuestToUser } from "./guestController";
+import { COOKIE_EXPIRATION } from "../utils/timeConstants";
 import {
   DecodedToken,
   RegistrationError,
@@ -98,7 +99,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
     // Send a success response to the client
@@ -167,7 +168,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
     // Send a success response to the client

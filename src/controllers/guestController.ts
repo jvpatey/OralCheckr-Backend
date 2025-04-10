@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import User from "../models/userModel";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import Habit from "../models/habitModel";
@@ -12,6 +11,7 @@ import {
   getCookieConfig,
   generateAccessToken,
 } from "../utils/authUtils";
+import { COOKIE_EXPIRATION } from "../utils/timeConstants";
 import {
   GuestLoginResponse,
   GuestConversionResponse,
@@ -30,12 +30,12 @@ export const guestLogin = async (
     // Create a guest user
     const guestUser = await createGuestUser();
 
-    // Generate a guest access token and store it in an HTTP-only cookie (1 day)
+    // Generate a guest access token and store it in an HTTP-only cookie
     const accessToken = generateGuestAccessToken(guestUser.userId);
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.GUEST)
     );
 
     // Create success response
@@ -219,8 +219,8 @@ export const convertGuestToUser = async (
     res.cookie(
       "accessToken",
       newAccessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
-    ); // 7 days
+      getCookieConfig(COOKIE_EXPIRATION.USER)
+    );
 
     // Create user response object
     const userResponse: UserResponse = {

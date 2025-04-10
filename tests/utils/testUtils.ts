@@ -10,8 +10,9 @@ import {
   MockHabitLog,
   DateParams,
   TokenPayload,
-  SuperTestResponse,
 } from "../interfaces/interfaces";
+import { Response as SuperTestResponse } from "supertest";
+import { TOKEN_EXPIRATION } from "../../src/utils/timeConstants";
 
 /* -- Mock Data -- */
 
@@ -103,7 +104,7 @@ export const generateToken = (
     payload.role = role;
   }
   return jwt.sign(payload, process.env.JWT_SECRET || "test-secret", {
-    expiresIn: "1h",
+    expiresIn: TOKEN_EXPIRATION.TEST,
   });
 };
 
