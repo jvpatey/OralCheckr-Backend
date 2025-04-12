@@ -1,12 +1,23 @@
 import request from "supertest";
 import jwt from "jsonwebtoken";
-import app from "../../server";
+import app from "../../src/server";
 import bcrypt from "bcryptjs";
+import {
+  MockUser,
+  MockGuestUser,
+  MockQuestionnaireData,
+  MockHabit,
+  MockHabitLog,
+  DateParams,
+  TokenPayload,
+} from "../interfaces/interfaces";
+import { Response as SuperTestResponse } from "supertest";
+import { TOKEN_EXPIRATION } from "../../src/utils/timeConstants";
 
 /* -- Mock Data -- */
 
 // Mock user
-export const mockUser = {
+export const mockUser: MockUser = {
   userId: 1,
   email: "test@example.com",
   firstName: "Test",
@@ -14,20 +25,20 @@ export const mockUser = {
 };
 
 // Mock guest user
-export const mockGuestUser = {
+export const mockGuestUser: MockGuestUser = {
   userId: 5555,
   role: "guest",
 };
 
 // Mock questionnaire data
-export const mockQuestionnaireData = {
+export const mockQuestionnaireData: MockQuestionnaireData = {
   responses: { 1: 2, 2: [1, 3] },
   totalScore: 85,
   currentQuestion: 1,
 };
 
 // Mock habits
-export const mockHabits = [
+export const mockHabits: MockHabit[] = [
   {
     habitId: 1,
     userId: 1,
@@ -49,7 +60,7 @@ export const mockHabits = [
 ];
 
 // Mock habit logs
-export const mockLogs = [
+export const mockLogs: MockHabitLog[] = [
   {
     logId: 1,
     habitId: 1,
@@ -75,30 +86,35 @@ export const mockLogs = [
 ];
 
 // Mock date parameters
-export const standardDateParams = {
-  year: 2023,
+export const standardDateParams: DateParams = {
+  year: "2023",
   month: "June",
-  day: 15,
+  day: "15",
 };
 
 /* -- Test Utilities -- */
 
 // Generate mock authentication token
-export const generateToken = (userId = mockUser.userId, role?: string) => {
-  const payload: any = { userId };
+export const generateToken = (
+  userId = mockUser.userId,
+  role?: string
+): string => {
+  const payload: TokenPayload = { userId };
   if (role) {
     payload.role = role;
   }
   return jwt.sign(payload, process.env.JWT_SECRET || "test-secret", {
-    expiresIn: "1h",
+    expiresIn: TOKEN_EXPIRATION.TEST,
   });
 };
 
+type HttpMethod = "get" | "post" | "put" | "delete";
+
 // Make mock authenticated request with mock token
 export const makeAuthenticatedRequest = (
-  method: "get" | "post" | "put" | "delete",
+  method: HttpMethod,
   url: string,
-  body?: any,
+  body?: Record<string, unknown>,
   userId = mockUser.userId,
   role?: string
 ) => {
@@ -131,9 +147,9 @@ export const makeAuthenticatedRequest = (
 
 // Make mock guest request with mock token
 export const makeGuestRequest = (
-  method: "get" | "post" | "put" | "delete",
+  method: HttpMethod,
   url: string,
-  body?: any,
+  body?: Record<string, unknown>,
   userId = mockGuestUser.userId
 ) => {
   return makeAuthenticatedRequest(method, url, body, userId, "guest");
@@ -141,9 +157,9 @@ export const makeGuestRequest = (
 
 // Make mock unauthenticated request (no token)
 export const makeUnauthenticatedRequest = (
-  method: "get" | "post" | "put" | "delete",
+  method: HttpMethod,
   url: string,
-  body?: any
+  body?: Record<string, unknown>
 ) => {
   switch (method.toLowerCase()) {
     case "get":
@@ -160,7 +176,7 @@ export const makeUnauthenticatedRequest = (
 };
 
 // Check if mock response has a valid auth cookie
-export const expectAuthCookie = (res: any) => {
+export const expectAuthCookie = (res: SuperTestResponse) => {
   const cookies = res.headers["set-cookie"];
   expect(Array.isArray(cookies)).toBe(true);
   expect(
@@ -171,7 +187,7 @@ export const expectAuthCookie = (res: any) => {
 };
 
 // Check if mock response has a cleared auth cookie on logout
-export const expectClearedAuthCookie = (res: any) => {
+export const expectClearedAuthCookie = (res: SuperTestResponse) => {
   const cookies = res.headers["set-cookie"];
   expect(Array.isArray(cookies)).toBe(true);
   expect(
@@ -182,7 +198,7 @@ export const expectClearedAuthCookie = (res: any) => {
 };
 
 // Check if mock habit log has the correct properties
-export const expectLogProperties = (log: any) => {
+export const expectLogProperties = (log: Partial<MockHabitLog>) => {
   // Check if the log has the correct properties
   expect(log).toHaveProperty(log.logId !== undefined ? "logId" : "id");
   expect(log).toHaveProperty("habitId");
@@ -192,12 +208,16 @@ export const expectLogProperties = (log: any) => {
 };
 
 // Generate mock hashed password
-export const generateHashedPassword = async (password: string) => {
+export const generateHashedPassword = async (
+  password: string
+): Promise<string> => {
   return await bcrypt.hash(password, 10);
 };
 
 // Check if mock questionnaire response has the correct properties
-export const expectQuestionnaireProperties = (response: any) => {
+export const expectQuestionnaireProperties = (
+  response: Partial<MockQuestionnaireData>
+) => {
   expect(response).toHaveProperty("responses");
   expect(response).toHaveProperty("totalScore");
   expect(response).toHaveProperty("currentQuestion");

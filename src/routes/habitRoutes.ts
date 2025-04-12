@@ -9,13 +9,12 @@ import {
 import { verifyToken } from "../middlewares/authMiddleware";
 
 const router = express.Router();
-router.use(verifyToken);
 
 /* -- Habit routes -- */
-router.get("/", getHabits); // Get all habits
-router.post("/", createHabit); // Create a new habit
-router.put("/:id", updateHabit); // Update a habit by id
-router.delete("/:id", deleteHabit); // Delete a habit by id
-router.delete("/", deleteAllHabits); // Delete all habits
+router.get("/", verifyToken, getHabits); // Get all habits
+router.post("/", verifyToken, createHabit); // Create a new habit
+router.put("/:id", verifyToken, updateHabit); // Update a habit by id
+router.delete("/:id", verifyToken, deleteHabit); // Delete a habit by id
+router.delete("/", verifyToken, deleteAllHabits); // Delete all habits
 
 export default router;

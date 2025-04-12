@@ -1,7 +1,8 @@
 import request from "supertest";
-import app from "../server";
-import sequelize from "../db/db";
-import User from "../models/userModel";
+import app from "../src/server";
+import sequelize from "../src/db/db";
+import User from "../src/models/userModel";
+import { Model } from "sequelize";
 import {
   mockUser,
   makeAuthenticatedRequest,
@@ -27,7 +28,7 @@ describe("Auth Routes", () => {
       jest.spyOn(User, "create").mockResolvedValue({
         userId: 1,
         email: "test@example.com",
-      } as any);
+      } as unknown as Model);
 
       const res = await request(app).post("/auth/register").send({
         email: "test@example.com",
@@ -40,9 +41,9 @@ describe("Auth Routes", () => {
     });
 
     it("should return 409 if the email already exists", async () => {
-      jest
-        .spyOn(User, "findOne")
-        .mockResolvedValue({ email: "test@example.com" } as any);
+      jest.spyOn(User, "findOne").mockResolvedValue({
+        email: "test@example.com",
+      } as unknown as Model);
 
       const res = await request(app).post("/auth/register").send({
         email: "test@example.com",
@@ -111,7 +112,7 @@ describe("Auth Routes", () => {
         userId: 1,
         email: "test@example.com",
         password: hashedPassword,
-      } as any);
+      } as unknown as Model);
 
       const res = await request(app).post("/auth/login").send({
         email: "test@example.com",
@@ -128,7 +129,7 @@ describe("Auth Routes", () => {
         userId: 1,
         email: "test@example.com",
         password: hashedPassword,
-      } as any);
+      } as unknown as Model);
 
       const res = await request(app).post("/auth/login").send({
         email: "test@example.com",
@@ -188,7 +189,7 @@ describe("Auth Routes", () => {
         email: mockUser.email,
         firstName: mockUser.firstName,
         lastName: mockUser.lastName,
-      } as any);
+      } as unknown as Model);
 
       const res = await makeAuthenticatedRequest("get", "/auth/validate");
 

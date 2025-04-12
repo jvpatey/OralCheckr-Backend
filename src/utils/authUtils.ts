@@ -1,25 +1,28 @@
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/userModel";
+import { TOKEN_EXPIRATION } from "./timeConstants";
 
 /* -- Utility functions used in authentication controllers -- */
 
 /* -- Generate a JWT token for the user -- */
-export const generateAccessToken = (userId: number): string => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-    expiresIn: "7d",
+export const generateAccessToken = (
+  userId: number,
+  role?: string,
+  expiresIn: SignOptions["expiresIn"] = TOKEN_EXPIRATION.USER
+): string => {
+  const payload: { userId: number; role?: string } = { userId };
+  if (role) {
+    payload.role = role;
+  }
+  return jwt.sign(payload, process.env.JWT_SECRET as string, {
+    expiresIn,
   });
 };
 
 /* -- Generate a JWT token for the guest user -- */
 export const generateGuestAccessToken = (guestUserId: number): string => {
-  return jwt.sign(
-    { userId: guestUserId, role: "guest" },
-    process.env.JWT_SECRET as string,
-    {
-      expiresIn: "1d",
-    }
-  );
+  return generateAccessToken(guestUserId, "guest", TOKEN_EXPIRATION.GUEST);
 };
 
 /* -- Password Validation Function -- */

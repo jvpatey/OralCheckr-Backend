@@ -1,6 +1,7 @@
-import QuestionnaireResponse from "../models/questionnaireResponseModel";
-import User from "../models/userModel";
-import sequelize from "../db/db";
+import QuestionnaireResponse from "../src/models/questionnaireResponseModel";
+import User from "../src/models/userModel";
+import sequelize from "../src/db/db";
+import { Model } from "sequelize";
 import {
   mockUser,
   mockGuestUser,
@@ -10,6 +11,21 @@ import {
   makeGuestRequest,
   expectQuestionnaireProperties,
 } from "./utils/testUtils";
+
+type MockQuestionnaireAttributes = {
+  userId: number;
+  responses: { [key: number]: number | number[] };
+  totalScore?: number;
+  currentQuestion?: number;
+};
+
+type MockQuestionnaireModel = Model &
+  MockQuestionnaireAttributes & {
+    update?: (
+      data: Partial<MockQuestionnaireAttributes>
+    ) => Promise<MockQuestionnaireModel>;
+    toJSON?: () => MockQuestionnaireAttributes;
+  };
 
 /* -- Questionnaire Routes Tests -- */
 
@@ -29,14 +45,21 @@ describe("Questionnaire Endpoints", () => {
   // Tests the questionnaire response POST endpoint
   describe("POST /questionnaire/response", () => {
     it("should create a new questionnaire response if none exists", async () => {
-      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+      jest
+        .spyOn(User, "findByPk")
+        .mockResolvedValue(mockUser as unknown as Model);
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue(null);
-      jest.spyOn(QuestionnaireResponse, "create").mockResolvedValue({
+
+      const mockResponseData: MockQuestionnaireModel = {
         userId: mockUser.userId,
         responses: mockQuestionnaireData.responses,
         totalScore: mockQuestionnaireData.totalScore,
         currentQuestion: 1,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "create")
+        .mockResolvedValue(mockResponseData);
 
       const res = await makeAuthenticatedRequest(
         "post",
@@ -53,23 +76,29 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should update an existing questionnaire response", async () => {
-      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+      jest
+        .spyOn(User, "findByPk")
+        .mockResolvedValue(mockUser as unknown as Model);
 
-      const updatedResponse = {
+      const updatedResponse: MockQuestionnaireAttributes = {
         userId: mockUser.userId,
         responses: { 1: 3, 2: [2, 3] },
         totalScore: 90,
         currentQuestion: 1,
       };
 
-      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+      const mockExistingResponse: MockQuestionnaireModel = {
         userId: mockUser.userId,
         responses: { 1: 2, 2: [1, 3] },
         totalScore: 85,
         currentQuestion: 1,
         update: jest.fn().mockResolvedValue(updatedResponse),
         toJSON: () => updatedResponse,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "findOne")
+        .mockResolvedValue(mockExistingResponse);
 
       const responseData = {
         responses: { 1: 3, 2: [2, 3] },
@@ -111,7 +140,9 @@ describe("Questionnaire Endpoints", () => {
     });
 
     it("should return 400 when required fields are missing", async () => {
-      jest.spyOn(User, "findByPk").mockResolvedValue(mockUser as any);
+      jest
+        .spyOn(User, "findByPk")
+        .mockResolvedValue(mockUser as unknown as Model);
 
       const responseData = {
         responses: { 1: 3, 2: [2, 3] },
@@ -149,12 +180,16 @@ describe("Questionnaire Endpoints", () => {
   // Tests the questionnaire response GET endpoint
   describe("GET /questionnaire/response", () => {
     it("should retrieve the questionnaire response for the user", async () => {
-      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+      const mockResponseData: MockQuestionnaireModel = {
         userId: mockUser.userId,
         responses: mockQuestionnaireData.responses,
         totalScore: mockQuestionnaireData.totalScore,
         currentQuestion: mockQuestionnaireData.currentQuestion,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "findOne")
+        .mockResolvedValue(mockResponseData);
 
       const res = await makeAuthenticatedRequest(
         "get",
@@ -184,31 +219,34 @@ describe("Questionnaire Endpoints", () => {
       const res = await makeAuthenticatedRequest(
         "get",
         "/questionnaire/response",
-        null,
-        8888 // User ID with no responses
+        {},
+        8888
       );
 
-      expect(res.statusCode).toEqual(404);
-      expect(res.body).toHaveProperty(
-        "error",
-        "No response found for this user"
-      );
+      expect(res.statusCode).toEqual(204);
+      expect(res.body).toEqual({});
     });
   });
 
   // Tests the questionnaire progress PUT endpoint
   describe("PUT /questionnaire/progress", () => {
     it("should update the questionnaire progress", async () => {
-      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+      const updatedProgress: MockQuestionnaireAttributes = {
+        userId: mockUser.userId,
+        responses: { 1: 2 },
+        currentQuestion: 2,
+      };
+
+      const mockExistingProgress: MockQuestionnaireModel = {
         userId: mockUser.userId,
         responses: { 1: 2 },
         currentQuestion: 1,
-        update: jest.fn().mockResolvedValue({
-          userId: mockUser.userId,
-          responses: { 1: 2 },
-          currentQuestion: 2,
-        }),
-      } as any);
+        update: jest.fn().mockResolvedValue(updatedProgress),
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "findOne")
+        .mockResolvedValue(mockExistingProgress);
 
       const progressData = {
         responses: { 1: 2 },
@@ -266,11 +304,16 @@ describe("Questionnaire Endpoints", () => {
 
     it("should create a new record if none exists", async () => {
       jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValueOnce(null);
-      jest.spyOn(QuestionnaireResponse, "create").mockResolvedValueOnce({
+
+      const mockNewProgress: MockQuestionnaireModel = {
         userId: 7777,
         responses: { 1: 2 },
         currentQuestion: 2,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "create")
+        .mockResolvedValueOnce(mockNewProgress);
 
       const progressData = {
         responses: { 1: 2 },
@@ -295,11 +338,15 @@ describe("Questionnaire Endpoints", () => {
   // Tests the questionnaire progress GET endpoint
   describe("GET /questionnaire/progress", () => {
     it("should retrieve the questionnaire progress for the user", async () => {
-      jest.spyOn(QuestionnaireResponse, "findOne").mockResolvedValue({
+      const mockProgress: MockQuestionnaireModel = {
         userId: mockUser.userId,
         responses: { 1: 2 },
         currentQuestion: 2,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "findOne")
+        .mockResolvedValue(mockProgress);
 
       const res = await makeAuthenticatedRequest(
         "get",
@@ -330,26 +377,27 @@ describe("Questionnaire Endpoints", () => {
       const res = await makeAuthenticatedRequest(
         "get",
         "/questionnaire/progress",
-        null,
-        6666 // User ID with no progress
+        {},
+        6666
       );
 
-      expect(res.statusCode).toEqual(404);
-      expect(res.body).toHaveProperty(
-        "error",
-        "No progress found for this user"
-      );
+      expect(res.statusCode).toEqual(204);
+      expect(res.body).toEqual({});
     });
   });
 
   // Tests the guest questionnaire POST endpoint
   describe("POST /questionnaire/guest", () => {
     it("should save guest questionnaire responses", async () => {
-      jest.spyOn(QuestionnaireResponse, "create").mockResolvedValueOnce({
+      const mockGuestResponse: MockQuestionnaireModel = {
         userId: mockGuestUser.userId,
         responses: { 1: 2, 2: [1, 3] },
         totalScore: 75,
-      } as any);
+      } as unknown as MockQuestionnaireModel;
+
+      jest
+        .spyOn(QuestionnaireResponse, "create")
+        .mockResolvedValueOnce(mockGuestResponse);
 
       const responseData = {
         responses: { 1: 2, 2: [1, 3] },

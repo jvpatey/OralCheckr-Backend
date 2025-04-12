@@ -1,10 +1,12 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import User from "../models/userModel";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
 import { validatePassword } from "../utils/authUtils";
 import HabitLog from "../models/habitLogModel";
 import Habit from "../models/habitModel";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
+import { ProfileUpdateData } from "../interfaces/profile";
+import { UserResponse } from "../interfaces/auth";
 
 /* -- User Profile Controllers -- */
 
@@ -38,7 +40,16 @@ export const getProfile = async (
     res.status(200).json(user);
   } catch (error) {
     console.error("Error fetching profile:", error);
-    res.status(500).json({ error: "Failed to fetch profile" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to fetch profile: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to fetch profile due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -75,7 +86,7 @@ export const updateProfile = async (
     }
 
     // Create update object with only provided fields
-    const updateData: any = {};
+    const updateData: ProfileUpdateData = {};
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
     if (email !== undefined) updateData.email = email;
@@ -92,21 +103,33 @@ export const updateProfile = async (
       return;
     }
 
+    // Create user response object
+    const userResponse: UserResponse = {
+      userId: updatedUser.userId,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      email: updatedUser.email,
+      avatar: updatedUser.avatar,
+      isGuest: updatedUser.isGuest,
+    };
+
     // Send a success response to the client
     res.status(200).json({
       message: "Profile updated successfully",
-      user: {
-        userId: updatedUser.userId,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName,
-        email: updatedUser.email,
-        avatar: updatedUser.avatar,
-        isGuest: updatedUser.isGuest,
-      },
+      user: userResponse,
     });
   } catch (error) {
     console.error("Error updating profile:", error);
-    res.status(500).json({ error: "Failed to update profile" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to update profile: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to update profile due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -193,6 +216,15 @@ export const deleteAccount = async (
     res.status(200).json({ message: "Account deleted successfully" });
   } catch (error) {
     console.error("Error deleting account:", error);
-    res.status(500).json({ error: "Failed to delete account" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `Failed to delete account: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to delete account due to an unexpected error. Please try again.",
+      });
+    }
   }
 };

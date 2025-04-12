@@ -2,8 +2,8 @@ import { DataTypes } from "sequelize";
 import config from "./config";
 
 /* -- Data Types -- */
-// For postgres - use the integer type
-// MySQL supports UNSIGNED - use the integer type with the UNSIGNED flag
+// Render in production uses postgres - use the integer type
+// Development uses MySQL - use the integer type with the UNSIGNED flag
 
 // Get the integer type
 export const getIntegerType = (unsigned = false) => {

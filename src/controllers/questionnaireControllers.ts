@@ -2,13 +2,17 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import QuestionnaireResponse from "../models/questionnaireResponseModel";
 import User from "../models/userModel";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
+import {
+  QuestionnaireProgress,
+  QuestionnaireError,
+  ValidationError,
+  DecodedToken,
+  SequelizeValidationError,
+  QuestionnaireRequestBody,
+} from "../interfaces/questionnaire";
 
 /* -- Questionnaire Controller -- */
-
-interface DecodedToken {
-  userId: number;
-}
 
 /* -- Save questionaire responss on submission of questionnaire -- */
 export const saveResponse = async (
@@ -32,7 +36,7 @@ export const saveResponse = async (
     const userId = decoded.userId;
 
     // Get responses and totalScore from request body
-    const { responses, totalScore } = req.body;
+    const { responses, totalScore } = req.body as QuestionnaireRequestBody;
 
     // Check if the responses and totalScore are provided
     if (!responses || totalScore === undefined) {
@@ -87,8 +91,36 @@ export const saveResponse = async (
       );
     }
   } catch (error) {
-    console.error("Error saving response:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error(
+      `Questionnaire responses save failed: Error saving response: ${error}`
+    );
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      if (
+        "errors" in error &&
+        Array.isArray((error as SequelizeValidationError).errors)
+      ) {
+        const validationErrors = (error as SequelizeValidationError).errors
+          .map((err: ValidationError) => err.message)
+          .join(", ");
+        res.status(400).json({
+          error: "Questionnaire validation failed",
+          details: `Invalid data: ${validationErrors}`,
+          errors: (error as SequelizeValidationError).errors,
+        } as QuestionnaireError);
+      } else {
+        res.status(400).json({
+          error: "Questionnaire submission failed",
+          details: `Error: ${error.message}`,
+        } as QuestionnaireError);
+      }
+    } else {
+      res.status(500).json({
+        error: "Internal server error",
+        details:
+          "An unexpected error occurred while processing your questionnaire submission",
+      } as QuestionnaireError);
+    }
   }
 };
 
@@ -113,6 +145,16 @@ export const getResponseByUser = async (
     ) as DecodedToken;
     const userId = decoded.userId;
 
+    // Get the user to check if they're a guest
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(
+        `Questionnaire responses get failed: User not found for id: ${userId}`
+      );
+      return;
+    }
+
     // Fetch the user's response
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
@@ -129,23 +171,27 @@ export const getResponseByUser = async (
 
     // Check if the response record exists
     if (!responseRecord) {
-      res.status(404).json({ error: "No response found for this user" });
-      console.log(
-        `Questionnaire responses get failed: No response found for user: ${userId}`
-      );
+      // If no response exists yet, return 204 No Content for all users
+      res.status(204).end();
       return;
     }
 
     // Send a success response to the client
     res.status(200).json(responseRecord);
-    console.log(
-      `Questionnaire responses get successful: Fetched response for user: ${userId}`
-    );
   } catch (error) {
     console.error(
       `Questionnaire responses get failed: Error fetching user response: ${error}`
     );
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({
+        error: `Failed to fetch questionnaire responses: ${error.message}`,
+      });
+    } else {
+      res.status(500).json({
+        error:
+          "Failed to fetch questionnaire responses due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -171,7 +217,7 @@ export const updateProgress = async (
     const userId = decoded.userId;
 
     // Get the responses and current question from the request body
-    const { responses, currentQuestion } = req.body;
+    const { responses, currentQuestion } = req.body as QuestionnaireProgress;
 
     // Check if the responses and current question are provided
     if (responses === undefined || currentQuestion === undefined) {
@@ -181,10 +227,6 @@ export const updateProgress = async (
       );
       return;
     }
-
-    console.log(
-      `Questionnaire progress update: Processing update for user: ${userId} and current question: ${currentQuestion}`
-    );
 
     // Find existing progress record for the user
     const existingResponse = await QuestionnaireResponse.findOne({
@@ -198,9 +240,6 @@ export const updateProgress = async (
         message: "Questionnaire progress updated",
         progress: { responses, currentQuestion },
       });
-      console.log(
-        `Questionnaire progress update successful: Updated existing response: ${existingResponse.id} for user: ${userId}`
-      );
     } else {
       // Create a new record if none exists yet.
       const newResponse = await QuestionnaireResponse.create({
@@ -213,9 +252,6 @@ export const updateProgress = async (
         progress: { responses, currentQuestion },
         response: newResponse,
       });
-      console.log(
-        `Questionnaire progress update successful: Created new response: ${newResponse.id} for user: ${userId}`
-      );
     }
   } catch (error) {
     console.error("Error updating progress:", error);
@@ -244,15 +280,23 @@ export const getProgress = async (
     ) as DecodedToken;
     const userId = decoded.userId;
 
+    // Get the user to check if they're a guest
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log(
+        `Questionnaire progress get failed: User not found for id: ${userId}`
+      );
+      return;
+    }
+
     // Fetch the user's progress record
     const responseRecord = await QuestionnaireResponse.findOne({
       where: { userId },
     });
     if (!responseRecord) {
-      res.status(404).json({ error: "No progress found for this user" });
-      console.log(
-        `Questionnaire progress get failed: No progress found for user: ${userId}`
-      );
+      // If no progress exists yet, return 204 No Content for all users
+      res.status(204).end();
       return;
     }
 
@@ -260,10 +304,7 @@ export const getProgress = async (
     res.status(200).json({
       responses: responseRecord.responses,
       currentQuestion: responseRecord.currentQuestion,
-    });
-    console.log(
-      `Questionnaire progress get successful: Fetched progress for user: ${userId}`
-    );
+    } as QuestionnaireProgress);
   } catch (error) {
     console.error(
       `Questionnaire progress get failed: Error fetching progress: ${error}`
@@ -349,5 +390,78 @@ export const deleteQuestionnaireData = async (
   } catch (error) {
     console.error("Error deleting questionnaire data:", error);
     res.status(500).json({ error: "Failed to delete questionnaire data" });
+  }
+};
+
+/* -- Save questionnaire responses on submission of questionnaire -- */
+export const saveQuestionnaireResponses = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    // Get the JWT token from the cookies
+    const token = req.cookies.accessToken;
+    if (!token) {
+      res.status(401).json({ error: "Unauthorized - No token provided" });
+      console.log("Questionnaire responses save failed: No token provided");
+      return;
+    }
+
+    // Verify and decode JWT
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as DecodedToken;
+    const userId = decoded.userId;
+
+    // Get responses and totalScore from request body
+    const { responses, totalScore } = req.body as {
+      responses: Record<number, number | number[]>;
+      totalScore: number;
+    };
+
+    // Check if the responses and totalScore are provided
+    if (!responses || totalScore === undefined) {
+      res.status(400).json({ error: "Missing required fields" });
+      console.log(
+        "Questionnaire responses save failed: Missing required fields"
+      );
+      return;
+    }
+
+    // Get the user
+    const user = await User.findByPk(userId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      console.log("Questionnaire responses save failed: User not found");
+      return;
+    }
+
+    // Save the responses to the database
+    const questionnaireResponse = await QuestionnaireResponse.create({
+      userId,
+      responses,
+      totalScore,
+      currentQuestion: 0, // Reset to 0 after completion
+    });
+
+    res.status(201).json({
+      message: "Questionnaire responses saved successfully",
+      data: questionnaireResponse,
+    });
+    console.log("Questionnaire responses saved successfully");
+  } catch (error) {
+    console.error("Error saving questionnaire responses:", error);
+    if (error instanceof Error) {
+      res.status(500).json({
+        error: "Failed to save questionnaire responses",
+        details: error.message,
+      } as QuestionnaireError);
+    } else {
+      res.status(500).json({
+        error: "Internal server error",
+        details: "An unexpected error occurred",
+      } as QuestionnaireError);
+    }
   }
 };

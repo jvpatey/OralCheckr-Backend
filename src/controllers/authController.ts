@@ -1,12 +1,20 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import User from "../models/userModel";
 import {
   generateAccessToken,
   validatePassword,
   getCookieConfig,
 } from "../utils/authUtils";
-import { AuthenticatedRequest } from "../middlewares/authMiddleware";
+import { AuthenticatedRequest } from "../interfaces/auth";
+import { convertGuestToUser } from "./guestController";
+import { COOKIE_EXPIRATION } from "../utils/timeConstants";
+import {
+  DecodedToken,
+  RegistrationError,
+  UserResponse,
+} from "../interfaces/auth";
 
 /* -- Authentication Controllers -- */
 
@@ -32,7 +40,40 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Check if the email already exists
+  // Check if the request comes from a guest user
+  const token =
+    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+
+  if (token) {
+    try {
+      // Try to decode the token
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as DecodedToken;
+
+      // If this is a guest token, redirect to the guest conversion flow
+      if (decoded.role === "guest") {
+        console.log(
+          `Detected guest user (ID: ${decoded.userId}), redirecting to guest conversion flow`
+        );
+        // Add user object to the request so convertGuestToUser can use it
+        (req as AuthenticatedRequest).user = {
+          userId: decoded.userId,
+          role: "guest",
+        };
+        // Call the guest conversion function
+        return await convertGuestToUser(req as AuthenticatedRequest, res);
+      }
+    } catch (err) {
+      // Token validation failed, proceed with normal registration
+      console.log(
+        "Token validation failed, proceeding with normal registration"
+      );
+    }
+  }
+
+  // Continue with normal registration process for non-guest users
   try {
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
@@ -58,7 +99,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
     // Send a success response to the client
@@ -70,7 +111,27 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     );
   } catch (error) {
     console.error(`Registration error for ${email}:`, error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      // Check if it's a Sequelize validation error
+      const registrationError = error as RegistrationError;
+      if (registrationError.errors && Array.isArray(registrationError.errors)) {
+        const validationErrors = registrationError.errors
+          .map((err) => err.message)
+          .join(", ");
+        res
+          .status(400)
+          .json({ error: `Registration failed: ${validationErrors}` });
+      } else {
+        res
+          .status(400)
+          .json({ error: `Registration failed: ${error.message}` });
+      }
+    } else {
+      res.status(500).json({
+        error:
+          "Registration failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -107,7 +168,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
     // Send a success response to the client
@@ -117,7 +178,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
   } catch (error) {
     console.error(`Login error for ${email}:`, error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: `Login failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error: "Login failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -132,7 +199,13 @@ export const logout = (req: Request, res: Response): void => {
     console.log("Logout successful");
   } catch (error) {
     console.error("Logout error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    if (error instanceof Error) {
+      res.status(400).json({ error: `Logout failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error: "Logout failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };
 
@@ -154,18 +227,27 @@ export const validateUser = async (
     }
 
     // Send a success response to the client
-    res.status(200).json({
-      user: {
-        userId: user.userId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        avatar: user.avatar,
-        isGuest: user.isGuest,
-      },
-    });
+    const userResponse: UserResponse = {
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+      isGuest: user.isGuest,
+    };
+
+    res.status(200).json({ user: userResponse });
   } catch (error) {
     console.error("Error validating user:", error);
-    res.status(500).json({ error: "Failed to validate user" });
+    if (error instanceof Error) {
+      res
+        .status(400)
+        .json({ error: `User validation failed: ${error.message}` });
+    } else {
+      res.status(500).json({
+        error:
+          "User validation failed due to an unexpected error. Please try again.",
+      });
+    }
   }
 };

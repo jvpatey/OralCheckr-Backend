@@ -2,7 +2,14 @@ import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/userModel";
 import { generateAccessToken, getCookieConfig } from "../utils/authUtils";
+import { COOKIE_EXPIRATION } from "../utils/timeConstants";
 import { Op } from "sequelize";
+import {
+  GoogleTokenPayload,
+  GoogleLoginResponse,
+  GoogleLoginError,
+} from "../interfaces/googleAuth";
+import { UserResponse } from "../interfaces/auth";
 
 /* -- Google OAuth Controller -- */
 
@@ -44,7 +51,7 @@ export const googleLogin = async (
     });
 
     // Get the payload from the ticket
-    const payload = ticket.getPayload();
+    const payload = ticket.getPayload() as GoogleTokenPayload;
 
     // Check if the payload is valid
     if (!payload) {
@@ -91,26 +98,33 @@ export const googleLogin = async (
     res.cookie(
       "accessToken",
       accessToken,
-      getCookieConfig(7 * 24 * 60 * 60 * 1000)
+      getCookieConfig(COOKIE_EXPIRATION.USER)
     );
 
-    // Send a success response to the client
-    res.status(200).json({
+    // Create user response object
+    const userResponse: UserResponse = {
+      userId: user.userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      avatar: user.avatar,
+      isGuest: user.isGuest,
+    };
+
+    // Create success response
+    const response: GoogleLoginResponse = {
       message: "Google login successful",
-      user: {
-        userId: user.userId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        avatar: user.avatar,
-        isGuest: user.isGuest,
-      },
-    });
-  } catch (error: any) {
+      user: userResponse,
+    };
+
+    // Send a success response to the client
+    res.status(200).json(response);
+  } catch (error) {
+    const googleError = error as GoogleLoginError;
     console.error("Google login error details:", {
-      errorName: error.name,
-      errorMessage: error.message,
-      stack: error.stack,
+      errorName: googleError.name,
+      errorMessage: googleError.message,
+      stack: googleError.stack,
     });
     res.status(500).json({ error: "Failed to authenticate with Google" });
   }
