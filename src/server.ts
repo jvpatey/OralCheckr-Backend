@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes";
 import questionnaireRoutes from "./routes/questionnaireRoutes";
 import habitRoutes from "./routes/habitRoutes";
 import habitLogRoutes from "./routes/habitLogRoutes";
+import contactRoutes from "./routes/contactRoutes";
 import { corsOptions } from "./config/corsConfig";
 import { addCrossOriginHeaders } from "./middlewares/common";
 
@@ -47,6 +48,7 @@ app.use("/auth", authRoutes); // Authentication & user management
 app.use("/questionnaire", questionnaireRoutes); // Questionnaire responses
 app.use("/habits", habitRoutes); // Habit management
 app.use("/habit-logs", habitLogRoutes); // Habit logging and tracking
+app.use("/api/contact", contactRoutes); // Contact form email
 
 console.log(`Running in ${process.env.NODE_ENV} mode.`);
 
