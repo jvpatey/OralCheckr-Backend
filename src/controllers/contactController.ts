@@ -2,8 +2,13 @@ import { Request, Response } from "express";
 import { Resend } from "resend";
 import { ContactFormData } from "../interfaces/contact";
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend lazily
+const getResend = () => {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+  return new Resend(process.env.RESEND_API_KEY);
+};
 
 /**
  * Send contact form email via Resend
@@ -41,15 +46,6 @@ export const sendContactEmail = async (
       return;
     }
 
-    // Check if RESEND_API_KEY is configured
-    if (!process.env.RESEND_API_KEY) {
-      console.error("RESEND_API_KEY is not configured");
-      res.status(500).json({
-        message: "Email service is not configured",
-      });
-      return;
-    }
-
     // Check if CONTACT_EMAIL is configured
     if (!process.env.CONTACT_EMAIL) {
       console.error("CONTACT_EMAIL is not configured");
@@ -59,7 +55,8 @@ export const sendContactEmail = async (
       return;
     }
 
-    // Send email using Resend
+    // Initialize Resend and send email
+    const resend = getResend();
     const result = await resend.emails.send({
       from: "OralCheckr Contact <onboarding@resend.dev>", // Change this after domain verification
       to: [process.env.CONTACT_EMAIL],
