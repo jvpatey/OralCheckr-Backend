@@ -32,7 +32,7 @@ if (process.env.DATABASE_URL) {
     DB_USER: url.username,
     DB_PASS: url.password,
     DB_HOST: url.hostname,
-    DB_DIALECT: "postgres", // PostgreSQL for Render
+    DB_DIALECT: "postgres", // PostgreSQL for Supabase
     DB_PORT: url.port || "5432",
   };
 }
