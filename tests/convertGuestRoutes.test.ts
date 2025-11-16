@@ -37,11 +37,39 @@ describe("Convert Guest Routes", () => {
         isGuest: false,
       } as unknown as Model);
 
-      // Mock data migration
-      jest.spyOn(QuestionnaireResponse, "update").mockResolvedValue([1]);
-      jest.spyOn(Habit, "update").mockResolvedValue([1]);
-      jest.spyOn(HabitLog, "update").mockResolvedValue([1]);
-      jest.spyOn(User, "destroy").mockResolvedValue(1);
+      // Mock questionnaire responses migration
+      jest
+        .spyOn(QuestionnaireResponse, "findAll")
+        .mockResolvedValue([] as unknown as Model[]);
+      jest
+        .spyOn(QuestionnaireResponse, "create")
+        .mockResolvedValue({} as unknown as Model);
+      jest
+        .spyOn(QuestionnaireResponse, "destroy")
+        .mockResolvedValue(0 as unknown as number);
+
+      // Mock habits migration
+      jest
+        .spyOn(Habit, "findAll")
+        .mockResolvedValue([] as unknown as Model[]);
+      jest.spyOn(Habit, "create").mockResolvedValue({} as unknown as Model);
+      jest
+        .spyOn(Habit, "destroy")
+        .mockResolvedValue(0 as unknown as number);
+
+      // Mock habit logs migration
+      jest
+        .spyOn(HabitLog, "findAll")
+        .mockResolvedValue([] as unknown as Model[]);
+      jest
+        .spyOn(HabitLog, "create")
+        .mockResolvedValue({} as unknown as Model);
+      jest
+        .spyOn(HabitLog, "destroy")
+        .mockResolvedValue(0 as unknown as number);
+
+      // Mock guest user deletion
+      jest.spyOn(User, "destroy").mockResolvedValue(1 as unknown as number);
 
       const res = await makeGuestRequest("post", "/auth/convert-guest", {
         email: "converted@example.com",
