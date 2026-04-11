@@ -1,3 +1,5 @@
+# Note: API code now lives in OralCheckr repo under apps/api.
+
 # 🦷 OralCheckr Backend
 
 ## 📝 Description
